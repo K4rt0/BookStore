@@ -1,4 +1,5 @@
 RewriteEngine On
 
-# Chuyển tất cả các yêu cầu /bookstore/api/* đến backend/api/
+# Chuyển tất cả các yêu cầu /bookstore/api/* đến backend/api/ (tận dụng lại cấu trúc hiện có)
+# Điều này sẽ giúp chúng ta sử dụng cấu trúc URL http://localhost/bookstore/api/resource
 RewriteRule ^bookstore/api/(.*)$ backend/api/$1 [QSA,L] 
