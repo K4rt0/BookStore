@@ -31,4 +31,65 @@ class AdminController {
             ApiResponse::error("Thông tin đăng nhập sai", 401);
         }
     }
+
+    /* public function getAllUsers($page = 1, $limit = 10, $filter = 'all', $sort = 'all', $search = '') {
+        $user = new UserController();
+        $users = $user->getAllUsers();
+
+        if ($users) {
+            // Apply search filter
+            if (!empty($search)) {
+                $users = array_filter($users, function ($u) use ($search) {
+                    return stripos($u['name'], $search) !== false ||
+                           stripos($u['email'], $search) !== false ||
+                           stripos($u['phone'], $search) !== false;
+                });
+            }
+
+            // Apply block filter
+            if ($filter === 'is_blocked') {
+                $users = array_filter($users, function ($u) {
+                    return $u['is_blocked'] ?? false;
+                });
+            }
+
+            // Apply sorting
+            if ($sort === 'update_desc') {
+                usort($users, function ($a, $b) {
+                    return strtotime($b['updated_at']) - strtotime($a['updated_at']);
+                });
+            } elseif ($sort === 'update_asc') {
+                usort($users, function ($a, $b) {
+                    return strtotime($a['updated_at']) - strtotime($b['updated_at']);
+                });
+            } elseif ($sort === 'create_desc') {
+                usort($users, function ($a, $b) {
+                    return strtotime($b['created_at']) - strtotime($a['created_at']);
+                });
+            } elseif ($sort === 'create_asc') {
+                usort($users, function ($a, $b) {
+                    return strtotime($a['created_at']) - strtotime($b['created_at']);
+                });
+            }
+
+            // Pagination logic
+            $totalUsers = count($users);
+            $totalPages = ceil($totalUsers / $limit);
+            $offset = ($page - 1) * $limit;
+
+            $paginatedUsers = array_slice($users, $offset, $limit);
+
+            ApiResponse::success("Lấy danh sách người dùng thành công !", 200, [
+                "users" => $paginatedUsers,
+                "pagination" => [
+                    "current_page" => $page,
+                    "total_pages" => $totalPages,
+                    "total_users" => $totalUsers,
+                    "limit" => $limit,
+                ],
+            ]);
+        } else {
+            ApiResponse::error("Không có người dùng nào !", 404);
+        }
+    } */
 }

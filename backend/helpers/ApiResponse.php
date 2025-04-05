@@ -2,6 +2,7 @@
 
 class ApiResponse {
     public static function success($message = 'Thành công', $statusCode = 200, $data = null) {
+        header('Content-Type: application/json; charset=utf-8');
         http_response_code($statusCode);
         echo json_encode([
             'code' => $statusCode,
@@ -13,6 +14,7 @@ class ApiResponse {
     }
 
     public static function error($message = 'Đã xảy ra lỗi', $statusCode = 500, $data = null) {
+        header('Content-Type: application/json; charset=utf-8');
         http_response_code($statusCode);
         echo json_encode([
             'code' => $statusCode,
