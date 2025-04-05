@@ -1,0 +1,4 @@
+RewriteEngine On
+
+# Chuyển tất cả các yêu cầu /bookstore/api/* đến backend/api/
+RewriteRule ^bookstore/api/(.*)$ backend/api/$1 [QSA,L] 
