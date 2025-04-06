@@ -32,7 +32,20 @@ class AdminController {
         }
     }
 
-    public function getAllUsers($page = 1, $limit = 10, $filter = 'all', $sort = 'all', $search = '') {
+    /* public function getAllUsers() {
+        $user = new UserController();
+        $users = $user->getAllUsers();
+
+        if ($users) {
+            ApiResponse::success("Lấy danh sách người dùng thành công !", 200, [
+                "users" => $users,
+            ]);
+        } else {
+            ApiResponse::error("Không có người dùng nào !", 404);
+        }
+    } */
+
+    /* public function getAllUsers($page = 1, $limit = 10, $filter = 'all', $sort = 'all', $search = '') {
         $user = new UserController();
         $users = $user->getAllUsers();
 
@@ -91,5 +104,5 @@ class AdminController {
         } else {
             ApiResponse::error("Không có người dùng nào !", 404);
         }
-    }
+    } */
 }
