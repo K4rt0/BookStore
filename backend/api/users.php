@@ -1,13 +1,16 @@
 <?php
 require_once __DIR__ . '/../controllers/UserController.php';
+require_once __DIR__ . '/../helpers/AuthMiddleware.php';
 
 $controller = new UserController();
 $flag = false;
 
 switch ($_SERVER['REQUEST_METHOD']) {
     case 'GET':
-        if ($_GET['action'] == 'profile')
+        if ($_GET['action'] == 'profile') {
+            AuthMiddleware::requireAuth();
             $controller->profile();
+        }
         elseif ($_GET['action'] == 'get-user')
             $controller->get_user($_GET);
         elseif ($_GET['action'] == 'get-all-users') {
