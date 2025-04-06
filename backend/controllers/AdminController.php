@@ -32,7 +32,7 @@ class AdminController {
         }
     }
 
-    /* public function getAllUsers($page = 1, $limit = 10, $filter = 'all', $sort = 'all', $search = '') {
+    public function getAllUsers($page = 1, $limit = 10, $filter = 'all', $sort = 'all', $search = '') {
         $user = new UserController();
         $users = $user->getAllUsers();
 
@@ -91,5 +91,5 @@ class AdminController {
         } else {
             ApiResponse::error("Không có người dùng nào !", 404);
         }
-    } */
+    }
 }

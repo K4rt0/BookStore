@@ -11,11 +11,13 @@ switch ($_SERVER['REQUEST_METHOD']) {
         else $flag = true;
         break;
 
-    /* case 'GET':
-        if ($_GET['action'] === 'get-all-users')
+    case 'GET':
+        if ($_GET['action'] === 'get-all-users') {
+            AuthMiddleware::requireAuth(true);
             $controller->getAllUsers();
+        }
         else $flag = true;
-        break; */
+        break;
     default:
         $flag = true;
 }
