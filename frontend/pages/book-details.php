@@ -29,9 +29,17 @@ if (!$book) {
 ?>
 
 <style>
+/* General Section Styling */
 .services-area2 {
-    padding: 20px 0;
+    padding: 40px 0;
+    background: #f9f9f9;
 }
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+/* Book Details Section */
 .single-services {
     display: flex;
     align-items: center;
@@ -39,26 +47,45 @@ if (!$book) {
     padding: 20px;
     background: #fff;
     box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    border-radius: 5px;
+    border-radius: 8px;
+    margin-bottom: 30px;
 }
 .features-img img {
     max-width: 200px;
     height: auto;
-    margin-right: 20px;
+    margin-right: 30px;
+    border-radius: 5px;
 }
 .features-caption {
     flex: 1;
 }
 .features-caption h3 {
-    font-size: 24px;
+    font-size: 28px;
     margin-bottom: 10px;
+    color: #333;
+}
+.features-caption p {
+    font-size: 16px;
+    color: #666;
+    margin-bottom: 15px;
 }
 .price span {
-    font-size: 20px;
+    font-size: 22px;
     color: #e74c3c;
+    font-weight: bold;
 }
 .review {
-    margin: 10px 0;
+    margin: 15px 0;
+    display: flex;
+    align-items: center;
+}
+.review .rating {
+    margin-right: 10px;
+}
+.review p {
+    margin: 0;
+    font-size: 14px;
+    color: #666;
 }
 .white-btn {
     background: #fff;
@@ -67,35 +94,143 @@ if (!$book) {
     border-radius: 5px;
     text-decoration: none;
     color: #333;
+    transition: background 0.3s;
 }
 .white-btn:hover {
     background: #f0f0f0;
 }
 .border-btn {
     border: 1px solid #ddd;
-    padding: 5px 10px;
+    padding: 8px 12px;
     border-radius: 5px;
     margin-left: 10px;
+    text-decoration: none;
 }
 .share-btn i {
     color: #333;
 }
+
+/* Tabs Section */
+.our-client {
+    padding: 40px 0;
+}
 .nav-tabs {
-    border-bottom: 2px solid #ddd;
+    border-bottom: 2px solid #eee;
+    margin-bottom: 20px;
 }
 .nav-tabs .nav-link {
-    margin-right: 10px;
-    padding: 10px 20px;
+    margin-right: 20px;
+    padding: 12px 25px;
     border: none;
-    border-bottom: 2px solid transparent;
+    border-radius: 5px 5px 0 0;
     color: #666;
+    font-size: 16px;
+    font-weight: 500;
+    transition: all 0.3s;
 }
-.nav-tabs .nav-link.active {
-    border-bottom: 2px solid #e74c3c;
+.nav-tabs .nav-link:hover {
+    background: #f5f5f5;
     color: #333;
 }
+.nav-tabs .nav-link.active {
+    background: #fff;
+    border-bottom: 3px solid #e74c3c;
+    color: #333;
+    font-weight: 600;
+}
 .tab-content {
-    padding: 20px 0;
+    background: #fff;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+/* Description Tab Styling */
+.description-content h4 {
+    font-size: 22px;
+    color: #333;
+    margin-bottom: 15px;
+    border-left: 4px solid #e74c3c;
+    padding-left: 15px;
+}
+.description-content .main-description {
+    font-size: 16px;
+    line-height: 1.8;
+    color: #555;
+    margin-bottom: 20px;
+    padding: 15px;
+    background: #f9f9f9;
+    border-radius: 5px;
+}
+.description-content .short-description {
+    font-size: 15px;
+    line-height: 1.6;
+    color: #777;
+    font-style: italic;
+    padding: 10px 15px;
+    border-left: 2px solid #ddd;
+}
+
+/* Author Tab Styling */
+.author-content h4 {
+    font-size: 22px;
+    color: #333;
+    margin-bottom: 15px;
+    border-left: 4px solid #e74c3c;
+    padding-left: 15px;
+}
+.author-content .author-info {
+    padding: 15px;
+    background: #f9f9f9;
+    border-radius: 5px;
+}
+.author-content .author-info p {
+    font-size: 16px;
+    line-height: 1.8;
+    color: #555;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+}
+.author-content .author-info p i {
+    margin-right: 10px;
+    color: #e74c3c;
+    font-size: 18px;
+}
+.author-content .author-info p strong {
+    color: #333;
+    font-weight: 600;
+    min-width: 150px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .single-services {
+        flex-direction: column;
+        text-align: center;
+    }
+    .features-img img {
+        margin-right: 0;
+        margin-bottom: 20px;
+    }
+    .nav-tabs .nav-link {
+        padding: 10px 15px;
+        font-size: 14px;
+    }
+    .tab-content {
+        padding: 20px;
+    }
+    .description-content h4,
+    .author-content h4 {
+        font-size: 20px;
+    }
+    .author-content .author-info p {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .author-content .author-info p strong {
+        margin-bottom: 5px;
+    }
 }
 </style>
 
@@ -119,7 +254,7 @@ if (!$book) {
                                     <h3><?= htmlspecialchars($book['title'] ?? 'Unknown Title') ?></h3>
                                     <p>By <?= htmlspecialchars($book['author'] ?? 'Unknown Author') ?></p>
                                     <div class="price">
-                                        <span>$<?= htmlspecialchars(number_format(($book['price'] ?? 0), 0)) ?></span>
+                                        <span>$<?= htmlspecialchars(number_format(($book['price'] ?? 0) / 1000, 2)) ?></span>
                                     </div>
                                     <div class="review">
                                         <div class="rating">
@@ -136,9 +271,9 @@ if (!$book) {
                                             }
                                             ?>
                                         </div>
-                                        <p>(<?= htmlspecialchars($book['rating_count'] ?? '0') ?> Review)</p>
+                                        <p class="mb-0">(<?= htmlspecialchars($book['rating_count'] ?? '0') ?> Review)</p>
                                     </div>
-                                    <a href="#" class="white-btn mr-10" onclick="addToCart('<?= htmlspecialchars($book['id'] ?? '') ?>')">Add to Cart</a>
+                                    <a href="#" class="white-btn mr-10 p-4" onclick="addToCart('<?= htmlspecialchars($book['id'] ?? '') ?>')">Add to Cart</a>
                                     <a href="#" class="border-btn share-btn"><i class="fas fa-share-alt"></i></a>
                                 </div>
                             </div>
@@ -151,7 +286,7 @@ if (!$book) {
             <section class="our-client section-padding best-selling">
                 <div class="container">
                     <div class="row">
-                        <div class="offset-xl-1 col-xl-10">
+                        <div class="offset-xl-1 col-xl-10 col-lg-12">
                             <div class="nav-button f-left">
                                 <nav>
                                     <div class="nav nav-tabs" id="nav-tab" role="tablist">
@@ -162,21 +297,27 @@ if (!$book) {
                             </div>
                         </div>
                     </div>
-                    <div class="tab-content" id="nav-tabContent">
-                        <div class="tab-pane fade show active" id="nav-one" role="tabpanel" aria-labelledby="nav-one-tab">
-                            <div class="row">
-                                <div class="offset-xl-1 col-lg-9">
-                                    <p><?= htmlspecialchars($book['description'] ?? 'No description available') ?></p>
-                                    <p><?= htmlspecialchars($book['short_description'] ?? '') ?></p>
+                    <div class="row">
+                        <div class="offset-xl-1 col-xl-10 col-lg-12">
+                            <div class="tab-content" id="nav-tabContent">
+                                <div class="tab-pane fade show active" id="nav-one" role="tabpanel" aria-labelledby="nav-one-tab">
+                                    <div class="description-content">
+                                        <h4>Book Description</h4>
+                                        <p class="main-description"><?= htmlspecialchars($book['description'] ?? 'No description available') ?></p>
+                                        <?php if (!empty($book['short_description'])): ?>
+                                            <p class="short-description"><?= htmlspecialchars($book['short_description']) ?></p>
+                                        <?php endif; ?>
+                                    </div>
                                 </div>
-                            </div>
-                        </div>
-                        <div class="tab-pane fade" id="nav-two" role="tabpanel" aria-labelledby="nav-two-tab">
-                            <div class="row">
-                                <div class="offset-xl-1 col-lg-9">
-                                    <p>Author: <?= htmlspecialchars($book['author'] ?? 'Unknown Author') ?></p>
-                                    <p>Publisher: <?= htmlspecialchars($book['publisher'] ?? 'Unknown Publisher') ?></p>
-                                    <p>Publication Date: <?= htmlspecialchars($book['publication_date'] ?? 'Unknown Date') ?></p>
+                                <div class="tab-pane fade" id="nav-two" role="tabpanel" aria-labelledby="nav-two-tab">
+                                    <div class="author-content">
+                                        <h4>About the Author</h4>
+                                        <div class="author-info">
+                                            <p><i class="fas fa-user"></i> <strong>Author:</strong> <?= htmlspecialchars($book['author'] ?? 'Unknown Author') ?></p>
+                                            <p><i class="fas fa-book"></i> <strong>Publisher:</strong> <?= htmlspecialchars($book['publisher'] ?? 'Unknown Publisher') ?></p>
+                                            <p><i class="fas fa-calendar-alt"></i> <strong>Publication Date:</strong> <?= htmlspecialchars($book['publication_date'] ?? 'Unknown Date') ?></p>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>

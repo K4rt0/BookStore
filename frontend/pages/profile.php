@@ -8,8 +8,6 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || !isset(
     exit;
 }
 
-error_log("Loaded profile.php");
-error_log("Session in profile.php: " . print_r($_SESSION, true));
 
 $page_title = "Book Shop - Profile";
 $layout = 'main-layout';
@@ -43,7 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $active_tab === 'personal') {
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL, "$api_base_url/users?action=update-profile");
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "PUT"); // Sử dụng phương thức PUT
+    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "PUT");
     curl_setopt($ch, CURLOPT_POSTFIELDS, $postData);
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
         'Authorization: Bearer ' . $_SESSION['access_token'],
@@ -58,10 +56,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $active_tab === 'personal') {
     $result = json_decode($response, true);
 
     if ($http_status === 200 && $result['success']) {
-        // Cập nhật session với thông tin mới
         $_SESSION['username'] = $full_name;
         $_SESSION['phone'] = $phone;
-        $username = $full_name; // Cập nhật biến để hiển thị ngay
+        $username = $full_name;
         $phone = $phone;
         $update_success = 'Profile updated successfully!';
     } else {
@@ -84,11 +81,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $active_tab === 'password') {
             'confirm_password' => $confirm_password
         ]);
 
-        $result = call_api_with_token(
-            "$api_base_url/users?action=update-profile",
-            'PUT',
-            ['full_name' => $full_name, 'phone' => $phone]
-        );
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, "$api_base_url/users?action=change-password");
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "PUT");
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $postData);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Authorization: Bearer ' . $_SESSION['access_token'],
+            'Content-Type: application/json',
+            'Content-Length: ' . strlen($postData)
+        ]);
+
+        $response = curl_exec($ch);
+        $http_status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        $result = json_decode($response, true);
 
         if ($http_status === 200 && $result['success']) {
             $password_success = 'Password updated successfully!';
@@ -100,58 +108,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $active_tab === 'password') {
 
 ob_start();
 ?>
-
 <link rel="stylesheet" href="/assets/css/template/profile.css">
-<style>
-.message-success {
-    color: green;
-    font-size: 14px;
-    font-weight: 500;
-    margin-bottom: 20px;
-    text-align: center;
-}
-
-.message-error {
-    color: red;
-    font-size: 14px;
-    font-weight: 500;
-    margin-bottom: 20px;
-    text-align: center;
-}
-
-.form-control {
-    border-radius: 8px;
-    border: 1px solid #ddd;
-    padding: 12px;
-    font-size: 14px;
-    transition: border-color 0.3s ease;
-}
-
-.form-control:focus {
-    outline: none;
-    border-color: #6e8efb;
-}
-
-.form-label {
-    font-weight: 500;
-    color: #444;
-    margin-bottom: 8px;
-}
-
-.btn-primary {
-    background: #6e8efb;
-    border: none;
-    border-radius: 8px;
-    padding: 10px 20px;
-    font-size: 16px;
-    transition: all 0.3s ease;
-}
-
-.btn-primary:hover {
-    background: #5a78e4;
-    transform: translateY(-2px);
-}
-</style>
 
 <div class="profile-area">
     <div class="container">
@@ -167,9 +124,9 @@ ob_start();
                 </div>
                 <div class="profile-info">
                     <h2><?= htmlspecialchars($username) ?></h2>
-                    <p><i class="fas fa-envelope me-2"></i><?= htmlspecialchars($email) ?></p>
-                    <p><i class="fas fa-phone me-2"></i><?= htmlspecialchars($phone) ?></p>
-                    <p><i class="fas fa-calendar me-2"></i>Member since <?= htmlspecialchars($join_date) ?></p>
+                    <p><i class="fas fa-envelope"></i><?= htmlspecialchars($email) ?></p>
+                    <p><i class="fas fa-phone"></i><?= htmlspecialchars($phone) ?></p>
+                    <p><i class="fas fa-calendar-alt"></i>Member since <?= htmlspecialchars($join_date) ?></p>
                 </div>
             </div>
         </div>
@@ -179,43 +136,43 @@ ob_start();
                 <div class="profile-sidebar sticky-top">
                     <div class="profile-nav">
                         <div class="nav-header">
-                            <i class="fas fa-user-circle me-2"></i> Account Management
+                            <i class="fas fa-user-circle"></i> Account Management
                         </div>
                         <ul class="nav flex-column">
                             <li class="nav-item">
                                 <a class="nav-link <?= $active_tab == 'orders' ? 'active' : '' ?>" href="/profile?tab=orders">
-                                    <i class="fas fa-shopping-bag me-2"></i> My Orders
+                                    <i class="fas fa-shopping-bag"></i> My Orders
                                 </a>
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link <?= $active_tab == 'wishlist' ? 'active' : '' ?>" href="/profile?tab=wishlist">
-                                    <i class="fas fa-heart me-2"></i> Wishlist
+                                    <i class="fas fa-heart"></i> Wishlist
                                 </a>
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link <?= $active_tab == 'reviews' ? 'active' : '' ?>" href="/profile?tab=reviews">
-                                    <i class="fas fa-star me-2"></i> My Reviews
+                                    <i class="fas fa-star"></i> My Reviews
                                 </a>
                             </li>
                         </ul>
                         <div class="nav-header mt-4">
-                            <i class="fas fa-cog me-2"></i> Settings
+                            <i class="fas fa-cog"></i> Settings
                         </div>
                         <ul class="nav flex-column">
                             <li class="nav-item">
                                 <a class="nav-link <?= $active_tab == 'personal' ? 'active' : '' ?>" href="/profile?tab=personal">
-                                    <i class="fas fa-user-edit me-2"></i> Personal Info
+                                    <i class="fas fa-user-edit"></i> Personal Info
                                 </a>
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link <?= $active_tab == 'password' ? 'active' : '' ?>" href="/profile?tab=password">
-                                    <i class="fas fa-lock me-2"></i> Change Password
+                                    <i class="fas fa-lock"></i> Change Password
                                 </a>
                             </li>
                         </ul>
                         <div class="nav-footer mt-4">
                             <a class="nav-link text-danger" href="/logout">
-                                <i class="fas fa-sign-out-alt me-2"></i> Logout
+                                <i class="fas fa-sign-out-alt"></i> Logout
                             </a>
                         </div>
                     </div>
@@ -227,7 +184,7 @@ ob_start();
                 <div class="tab-content active" id="orders">
                     <div class="card profile-card">
                         <div class="card-header">
-                            <h5><i class="fas fa-shopping-bag me-2"></i> My Orders</h5>
+                            <h5><i class="fas fa-shopping-bag"></i> My Orders</h5>
                         </div>
                         <div class="card-body">
                             <div class="empty-state">
@@ -242,7 +199,7 @@ ob_start();
                 <div class="tab-content active" id="wishlist">
                     <div class="card profile-card">
                         <div class="card-header">
-                            <h5><i class="fas fa-heart me-2"></i> My Wishlist</h5>
+                            <h5><i class="fas fa-heart"></i> My Wishlist</h5>
                         </div>
                         <div class="card-body">
                             <div class="empty-state">
@@ -257,7 +214,7 @@ ob_start();
                 <div class="tab-content active" id="reviews">
                     <div class="card profile-card">
                         <div class="card-header">
-                            <h5><i class="fas fa-star me-2"></i> My Reviews</h5>
+                            <h5><i class="fas fa-star"></i> My Reviews</h5>
                         </div>
                         <div class="card-body">
                             <div class="empty-state">
@@ -271,7 +228,7 @@ ob_start();
                 <div class="tab-content active" id="personal">
                     <div class="card profile-card">
                         <div class="card-header">
-                            <h5><i class="fas fa-user-edit me-2"></i> Personal Information</h5>
+                            <h5><i class="fas fa-user-edit"></i> Personal Information</h5>
                         </div>
                         <div class="card-body">
                             <?php if ($update_success): ?>
@@ -295,7 +252,7 @@ ob_start();
                                     <small class="text-muted">Contact support to change your email</small>
                                 </div>
                                 <div class="text-end">
-                                    <button type="submit" class="btn btn-primary p-4">Save Changes</button>
+                                    <button type="submit" class="btn btn-primary">Save Changes</button>
                                 </div>
                             </form>
                         </div>
@@ -305,7 +262,7 @@ ob_start();
                 <div class="tab-content active" id="password">
                     <div class="card profile-card">
                         <div class="card-header">
-                            <h5><i class="fas fa-lock me-2"></i> Change Password</h5>
+                            <h5><i class="fas fa-lock"></i> Change Password</h5>
                         </div>
                         <div class="card-body">
                             <?php if ($password_success): ?>
@@ -328,7 +285,7 @@ ob_start();
                                     <input type="password" class="form-control" id="confirm-password" name="confirm_password" required>
                                 </div>
                                 <div class="text-end">
-                                    <button type="submit" class="btn btn-primary p-4">Update Password</button>
+                                    <button type="submit" class="btn btn-primary">Update Password</button>
                                 </div>
                             </form>
                         </div>
