@@ -54,16 +54,16 @@ class Book {
     }
 
     public function get_all_books() {
-        $stmt = $this->conn->prepare("SELECT * FROM {$this->table}");
+        $stmt = $this->conn->prepare("SELECT * FROM {$this->table} WHERE is_deleted = 0");
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
     public function get_all_books_pagination($limit, $offset, $filters = [], $sort = 'created_at_desc') {
-        $query = "SELECT * FROM {$this->table} WHERE 1=1";
+        $query = "SELECT * FROM {$this->table} WHERE is_deleted = 0";
         $params = [];
     
-        $booleanFields = ['is_active', 'is_deleted', 'is_featured', 'is_new', 'is_best_seller', 'is_discounted'];
+        $booleanFields = ['is_active', 'is_featured', 'is_new', 'is_best_seller', 'is_discounted'];
     
         foreach ($booleanFields as $field) {
             if (array_key_exists($field, $filters)) {
@@ -117,49 +117,4 @@ class Book {
     
         return $stmt->execute() ? $stmt->fetchAll(PDO::FETCH_ASSOC) : false;
     }
-    
-
-    /* public function get_all_categories_pagination($limit, $offset, $filters = [], $sort = 'created_at_desc') {
-        $query = "SELECT * FROM {$this->table} WHERE 1=1";
-        $params = [];
-
-        if (array_key_exists('is_active', $filters)) {
-            $query .= " AND is_active = :is_active";
-            $params['is_active'] = $filters['is_active'];
-        }
-
-        if (!empty($filters['search'])) {
-            $query .= " AND name LIKE :search";
-            $params['search'] = '%' . $filters['search'] . '%';
-        }
-
-        switch ($sort) {
-            case 'created_at_asc':
-                $query .= " ORDER BY created_at ASC";
-                break;
-            case 'created_at_desc':
-                $query .= " ORDER BY created_at DESC";
-                break;
-            case 'updated_at_asc':
-                $query .= " ORDER BY updated_at ASC";
-                break;
-            case 'updated_at_desc':
-                $query .= " ORDER BY updated_at DESC";
-                break;
-            default:
-                $query .= " ORDER BY created_at DESC";
-                break;
-        }
-
-        $query .= " LIMIT :limit OFFSET :offset";
-        $params['limit'] = $limit;
-        $params['offset'] = $offset;
-
-        $stmt = $this->conn->prepare($query);
-        foreach ($params as $key => &$value) {
-            $stmt->bindValue(":{$key}", $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
-        }
-
-        return $stmt->execute() ? $stmt->fetchAll(PDO::FETCH_ASSOC) : false;
-    } */
 }

@@ -8,8 +8,9 @@ $dotenv->load();
 ExceptionHandler::handle();
 
 header("Access-Control-Allow-Origin: *");
-header("Access-Control-Allow-Headers: Content-Type");
 header("Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE");
+header("Access-Control-Allow-Headers: Content-Type, Authorization");
+header("Access-Control-Allow-Credentials: true");
 
 if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
     http_response_code(200);
@@ -35,6 +36,9 @@ switch (true) {
     case str_starts_with($resource, 'book'):
         require_once __DIR__ . '/books.php';
         break;
+    // case str_starts_with($resource, 'cart'):
+    //     require_once __DIR__ . '/books.php';
+    //     break;
     default:
         ApiResponse::error("Không tìm thấy route !", 404);
         break;
