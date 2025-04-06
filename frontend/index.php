@@ -26,10 +26,9 @@ $url_parts = explode('/', $url);
 error_log("Requested URL: " . $url);
 error_log("URL Parts: " . print_r($url_parts, true));
 
-// Define routes
 $routes = [
-    '' => 'pages/home.php',                // Homepage (/)
-    'index' => 'pages/home.php',           // /index
+    '' => 'pages/home.php',
+    'index' => 'pages/home.php',
     'login' => 'pages/login.php',
     'logout' => 'pages/logout.php',
     'register' => 'pages/register.php',
@@ -43,28 +42,33 @@ $routes = [
     'contact' => 'pages/contact.php',
     'error' => 'pages/error.php',
     'profile' => 'pages/profile.php',
+
+    // ✅ Admin-only routes
+    'admin' => 'pages/admin/dashboard.php',
+    'admin/dashboard' => 'pages/admin/dashboard.php',
+    'admin/users' => 'pages/admin/users.php',
+    'admin/books' => 'pages/admin/books.php',
 ];
 
-// Protected routes that require login
+
+$admin_only_routes = ['admin', 'admin/dashboard', 'admin/users', 'admin/books'];
+
 $protected_routes = ['logout', 'profile'];
 
-// Determine the route
-$route = $url_parts[0] ?? '';
+$url = filter_var($url, FILTER_SANITIZE_URL);
+$url_parts = explode('/', $url);
+$route = implode('/', array_slice($url_parts, 0, 2));
 $controller_file = $routes[$route] ?? null;
 
-// Debug: Log the route and controller file
-error_log("Route: " . $route);
-error_log("Controller File: " . ($controller_file ?: 'Not found'));
-
-// Debug: Log session state before middleware check
-error_log("Session logged_in before middleware: " . (isset($_SESSION['logged_in']) ? 'true' : 'false'));
-error_log("Session data: " . print_r($_SESSION, true));
 
 // Check if the route is protected
-if (in_array($route, $protected_routes) && (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true)) {
-    error_log("Redirecting to /login because user is not logged in");
-    header("Location: /login");
-    exit;
+if (in_array($route, $admin_only_routes)) {
+    if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || empty($_SESSION['is_admin'])) {
+        error_log("Access denied: Admin route without admin rights");
+        http_response_code(403);
+        require_once 'pages/error.php';
+        exit;
+    }
 }
 
 // Handle dynamic routes (e.g., /book-details/123)

@@ -17,14 +17,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = $_POST['email'] ?? '';
     $password = $_POST['password'] ?? '';
 
-    $postData = json_encode([
-        'email' => $email,
-        'password' => $password
-    ]);
+    $is_admin = false;
+    $login_endpoint = "$api_base_url/users?action=login"; // Mặc định cho người dùng thường
 
-    // Step 1: Gọi API đăng nhập
+    if (strtolower($email) === 'root') {
+        $is_admin = true;
+        $login_endpoint = "$api_base_url/admin?action=login";
+    }
+
+    $postData = $is_admin
+        ? json_encode(['username' => $email, 'password' => $password])
+        : json_encode(['email' => $email, 'password' => $password]);
+
+    error_log("Login endpoint: $login_endpoint");
+    error_log("Login data: $postData");
+
     $ch = curl_init();
-    curl_setopt($ch, CURLOPT_URL, "$api_base_url/users?action=login");
+    curl_setopt($ch, CURLOPT_URL, $login_endpoint);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_POST, true);
     curl_setopt($ch, CURLOPT_POSTFIELDS, $postData);
@@ -32,49 +41,71 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'Content-Type: application/json',
         'Content-Length: ' . strlen($postData)
     ]);
+    curl_setopt($ch, CURLOPT_VERBOSE, true);
+    $verbose = fopen('php://temp', 'w+');
+    curl_setopt($ch, CURLOPT_STDERR, $verbose);
 
     $response = curl_exec($ch);
     $http_status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curl_error = curl_error($ch);
     curl_close($ch);
+
+    error_log("HTTP Status: $http_status");
+    error_log("API Response: $response");
+    if ($curl_error) {
+        error_log("cURL Error: $curl_error");
+    }
+    rewind($verbose);
+    $verboseLog = stream_get_contents($verbose);
+    error_log("cURL Verbose Log: $verboseLog");
 
     $result = json_decode($response, true);
 
     if ($http_status === 200 && $result['success']) {
-        // Lưu token vào session
         $_SESSION['access_token'] = $result['data']['access_token'];
-        $_SESSION['refresh_token'] = $result['data']['refresh_token'];
+        $_SESSION['refresh_token'] = $result['data']['refresh_token'] ?? null; // Nếu không có refresh_token, để null
 
-        // Step 2: Gọi API lấy thông tin profile
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, "$api_base_url/users?action=profile");
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, [
-            'Authorization: Bearer ' . $_SESSION['access_token'],
-            'Content-Type: application/json'
-        ]);
-        $user_response = curl_exec($ch);
-        $user_status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
+        if (!$is_admin) {
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, "$api_base_url/users?action=profile");
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'Authorization: Bearer ' . $_SESSION['access_token'],
+                'Content-Type: application/json'
+            ]);
+            $user_response = curl_exec($ch);
+            $user_status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
 
-        $user_data = json_decode($user_response, true);
-        if ($user_status === 200 && $user_data['success']) {
-            // Lưu đầy đủ thông tin người dùng vào session
-            $_SESSION['logged_in'] = true;
-            $_SESSION['user_id'] = $user_data['data']['id'] ?? null;
-            $_SESSION['username'] = $user_data['data']['full_name'] ?? $email; // Dùng full_name thay vì username
-            $_SESSION['email'] = $user_data['data']['email'] ?? $email;
-            $_SESSION['phone'] = $user_data['data']['phone'] ?? null;
-            $_SESSION['created_at'] = $user_data['data']['created_at'] ?? null; // Ngày tạo tài khoản
-            $_SESSION['updated_at'] = $user_data['data']['updated_at'] ?? null; // Ngày cập nhật gần nhất
+            $user_data = json_decode($user_response, true);
+            if ($user_status === 200 && $user_data['success']) {
+                $_SESSION['logged_in'] = true;
+                $_SESSION['user_id'] = $user_data['data']['id'] ?? null;
+                $_SESSION['email'] = $user_data['data']['email'] ?? $email;
+                $_SESSION['username'] = $user_data['data']['full_name'] ?? $email;
+                $_SESSION['phone'] = $user_data['data']['phone'] ?? null;
+                $_SESSION['created_at'] = $user_data['data']['created_at'] ?? null;
+                $_SESSION['updated_at'] = $user_data['data']['updated_at'] ?? null;
+                $_SESSION['is_admin'] = false;
+            } else {
+                $_SESSION['logged_in'] = true;
+                $_SESSION['email'] = $email;
+                $_SESSION['username'] = $email;
+                $_SESSION['is_admin'] = false;
+                error_log("Failed to fetch user profile: " . ($user_data['message'] ?? 'Unknown error'));
+            }
         } else {
-            // Trường hợp không lấy được profile, dùng email làm fallback
             $_SESSION['logged_in'] = true;
-            $_SESSION['username'] = $email;
-            error_log("Failed to fetch user profile: " . ($user_data['message'] ?? 'Unknown error'));
+            $_SESSION['user_id'] = 'admin_root';
+            $_SESSION['email'] = 'admin';
+            $_SESSION['username'] = 'root';
+            $_SESSION['phone'] = 'N/A';
+            $_SESSION['created_at'] = '2023-01-01 00:00:00';
+            $_SESSION['updated_at'] = date('Y-m-d H:i:s');
+            $_SESSION['is_admin'] = true;
         }
 
         $login_success = true;
-        // Kiểm tra tham số redirect và chuyển hướng
         $redirect = $_GET['redirect'] ?? '';
         if ($redirect === 'profile') {
             header("Location: /profile");
@@ -83,7 +114,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         exit;
     } else {
-        $login_error = $result['message'] ?? 'Login failed. Please check your credentials.';
+        $login_error = $result['message'] ?? 'Login failed. Please check your credentials or API availability.';
     }
 }
 
