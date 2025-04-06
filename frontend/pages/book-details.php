@@ -1,9 +1,111 @@
 <?php
 $page_title = "Book Shop - Details";
-ob_start(); // Bắt đầu bộ đệm để lưu nội dung trang
+ob_start(); // Start buffer to save page content
+
+// Get book ID from URL parameter
+$book_id = isset($_GET['id']) ? $_GET['id'] : null;
+$base_url = $_ENV['API_BASE_URL'];
+
+// Initialize book data
+$book = null;
+
+if ($book_id) {
+    // Fetch book data from API
+    $api_url = $base_url . "books?action=get-book&id=" . urlencode($book_id);
+    $book_json = file_get_contents($api_url);
+    
+    if ($book_json) {
+        $response = json_decode($book_json, true);
+        if ($response['success'] && $response['code'] == 200) {
+            $book = $response['data'];
+        }
+    }
+}
+
+// If book data is not available, show error
+if (!$book) {
+    $error_message = "Book not found or has been deleted";
+}
 ?>
+
+<style>
+.services-area2 {
+    padding: 20px 0;
+}
+.single-services {
+    display: flex;
+    align-items: center;
+    border: none;
+    padding: 20px;
+    background: #fff;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    border-radius: 5px;
+}
+.features-img img {
+    max-width: 200px;
+    height: auto;
+    margin-right: 20px;
+}
+.features-caption {
+    flex: 1;
+}
+.features-caption h3 {
+    font-size: 24px;
+    margin-bottom: 10px;
+}
+.price span {
+    font-size: 20px;
+    color: #e74c3c;
+}
+.review {
+    margin: 10px 0;
+}
+.white-btn {
+    background: #fff;
+    border: 1px solid #ddd;
+    padding: 10px 20px;
+    border-radius: 5px;
+    text-decoration: none;
+    color: #333;
+}
+.white-btn:hover {
+    background: #f0f0f0;
+}
+.border-btn {
+    border: 1px solid #ddd;
+    padding: 5px 10px;
+    border-radius: 5px;
+    margin-left: 10px;
+}
+.share-btn i {
+    color: #333;
+}
+.nav-tabs {
+    border-bottom: 2px solid #ddd;
+}
+.nav-tabs .nav-link {
+    margin-right: 10px;
+    padding: 10px 20px;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: #666;
+}
+.nav-tabs .nav-link.active {
+    border-bottom: 2px solid #e74c3c;
+    color: #333;
+}
+.tab-content {
+    padding: 20px 0;
+}
+</style>
+
 <div class="services-area2">
-        <div class="container">
+    <div class="container">
+        <?php if (isset($error_message)): ?>
+            <div class="alert alert-danger">
+                <?= htmlspecialchars($error_message) ?>
+            </div>
+        <?php else: ?>
             <div class="row">
                 <div class="col-xl-12">
                     <div class="row">
@@ -11,25 +113,32 @@ ob_start(); // Bắt đầu bộ đệm để lưu nội dung trang
                             <!-- Single -->
                             <div class="single-services d-flex align-items-center mb-0">
                                 <div class="features-img">
-                                    <img src="/assets/img/gallery/best-books1.jpg" alt="">
+                                    <img src="<?= htmlspecialchars($book['image_url'] ?? '/assets/img/gallery/best-books1.jpg') ?>" alt="Book cover">
                                 </div>
                                 <div class="features-caption">
-                                    <h3>The Rage of Dragons</h3>
-                                    <p>By Evan Winter</p>
+                                    <h3><?= htmlspecialchars($book['title'] ?? 'Unknown Title') ?></h3>
+                                    <p>By <?= htmlspecialchars($book['author'] ?? 'Unknown Author') ?></p>
                                     <div class="price">
-                                        <span>$50.00</span>
+                                        <span>$<?= htmlspecialchars(number_format(($book['price'] ?? 0), 0)) ?></span>
                                     </div>
                                     <div class="review">
                                         <div class="rating">
-                                            <i class="fas fa-star"></i>
-                                            <i class="fas fa-star"></i>
-                                            <i class="fas fa-star"></i>
-                                            <i class="fas fa-star"></i>
-                                            <i class="fas fa-star-half-alt"></i>
+                                            <?php 
+                                            $rating = floatval($book['rating'] ?? 0);
+                                            for($i = 1; $i <= 5; $i++) {
+                                                if($i <= floor($rating)) {
+                                                    echo '<i class="fas fa-star"></i>';
+                                                } elseif($i - $rating <= 0.5 && $i - $rating > 0) {
+                                                    echo '<i class="fas fa-star-half-alt"></i>';
+                                                } else {
+                                                    echo '<i class="fas fa-star"></i>';
+                                                }
+                                            }
+                                            ?>
                                         </div>
-                                        <p>(120 Review)</p>
+                                        <p>(<?= htmlspecialchars($book['rating_count'] ?? '0') ?> Review)</p>
                                     </div>
-                                    <a href="#" class="white-btn mr-10">Add to Cart</a>
+                                    <a href="#" class="white-btn mr-10" onclick="addToCart('<?= htmlspecialchars($book['id'] ?? '') ?>')">Add to Cart</a>
                                     <a href="#" class="border-btn share-btn"><i class="fas fa-share-alt"></i></a>
                                 </div>
                             </div>
@@ -37,105 +146,56 @@ ob_start(); // Bắt đầu bộ đệm để lưu nội dung trang
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
-    <!-- services-area End-->
-    <!--Books review Start -->
-    <section class="our-client section-padding best-selling">
-        <div class="container">
-            <div class="row">
-                <div class="offset-xl-1 col-xl-10">
-                    <div class="nav-button f-left">
-                        <!--Nav Button  -->
-                        <nav>
-                            <div class="nav nav-tabs " id="nav-tab" role="tablist">
-                                <a class="nav-link active" id="nav-one-tab" data-bs-toggle="tab" href="#nav-one" role="tab" aria-controls="nav-one" aria-selected="true">Description</a>
-                                <a class="nav-link" id="nav-two-tab" data-bs-toggle="tab" href="#nav-two" role="tab" aria-controls="nav-two" aria-selected="false">Author</a>
-                                <a class="nav-link" id="nav-three-tab" data-bs-toggle="tab" href="#nav-three" role="tab" aria-controls="nav-three" aria-selected="false">Comments</a>
-                                <a class="nav-link" id="nav-four-tab" data-bs-toggle="tab" href="#nav-four" role="tab" aria-controls="nav-four" aria-selected="false">Review</a>
+            
+            <!-- Books review Start -->
+            <section class="our-client section-padding best-selling">
+                <div class="container">
+                    <div class="row">
+                        <div class="offset-xl-1 col-xl-10">
+                            <div class="nav-button f-left">
+                                <nav>
+                                    <div class="nav nav-tabs" id="nav-tab" role="tablist">
+                                        <a class="nav-link active" id="nav-one-tab" data-bs-toggle="tab" href="#nav-one" role="tab" aria-controls="nav-one" aria-selected="true">Description</a>
+                                        <a class="nav-link" id="nav-two-tab" data-bs-toggle="tab" href="#nav-two" role="tab" aria-controls="nav-two" aria-selected="false">Author</a>
+                                    </div>
+                                </nav>
                             </div>
-                        </nav>
-                        <!--End Nav Button  -->
+                        </div>
                     </div>
-                </div>
-            </div>
-        </div>
-        <div class="container">
-            <!-- Nav Card -->
-            <div class="tab-content" id="nav-tabContent">
-                <div class="tab-pane fade show active" id="nav-one" role="tabpanel" aria-labelledby="nav-one-tab">
-                    <!-- Tab 1 -->  
-                    <div class="row">
-                        <div class="offset-xl-1 col-lg-9">
-                            <p>Beryl Cook is one of Britain’s most talented and amusing artists .Beryl’s pictures feature women of all shapes and sizes enjoying themselves .Born between the two world wars, Beryl Cook eventually left Kendrick School in Reading at the age of 15, where she went to secretarial school and then into an insurance office. After moving to London and then Hampton, she eventually married her next door neighbour from Reading, John Cook. He was an officer in the Merchant Navy and after he left the sea in 1956, they bought a pub for a year before John took a job in Southern Rhodesia with a motor company. Beryl bought their young son a box of watercolours, and when showing him how to use it, she decided that she herself quite enjoyed painting. John subsequently bought her a child’s painting set for her birthday and it was with this that she produced her first significant work, a half-length portrait of a dark-skinned lady with a vacant expression and large drooping breasts. It was aptly named ‘Hangover’ by Beryl’s husband and</p>
-
-                            <p>It is often frustrating to attempt to plan meals that are designed for one. Despite this fact, we are seeing more and more recipe books and Internet websites that are dedicated to the act of cooking for one. Divorce and the death of spouses or grown children leaving for college are all reasons that someone accustomed to cooking for more than one would suddenly need to learn how to adjust all the cooking practices utilized before into a streamlined plan of cooking that is more efficient for one person creating less.</p>
+                    <div class="tab-content" id="nav-tabContent">
+                        <div class="tab-pane fade show active" id="nav-one" role="tabpanel" aria-labelledby="nav-one-tab">
+                            <div class="row">
+                                <div class="offset-xl-1 col-lg-9">
+                                    <p><?= htmlspecialchars($book['description'] ?? 'No description available') ?></p>
+                                    <p><?= htmlspecialchars($book['short_description'] ?? '') ?></p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="nav-two" role="tabpanel" aria-labelledby="nav-two-tab">
+                            <div class="row">
+                                <div class="offset-xl-1 col-lg-9">
+                                    <p>Author: <?= htmlspecialchars($book['author'] ?? 'Unknown Author') ?></p>
+                                    <p>Publisher: <?= htmlspecialchars($book['publisher'] ?? 'Unknown Publisher') ?></p>
+                                    <p>Publication Date: <?= htmlspecialchars($book['publication_date'] ?? 'Unknown Date') ?></p>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
-                <div class="tab-pane fade" id="nav-two" role="tabpanel" aria-labelledby="nav-two-tab">
-                    <!-- Tab 2 -->
-                    <div class="row">
-                        <div class="offset-xl-1 col-lg-9">
-                            <p>Beryl Cook is one of Britain’s most talented and amusing artists .Beryl’s pictures feature women of all shapes and sizes enjoying themselves .Born between the two world wars, Beryl Cook eventually left Kendrick School in Reading at the age of 15, where she went to secretarial school and then into an insurance office. After moving to London and then Hampton, she eventually married her next door neighbour from Reading, John Cook. He was an officer in the Merchant Navy and after he left the sea in 1956, they bought a pub for a year before John took a job in Southern Rhodesia with a motor company. Beryl bought their young son a box of watercolours, and when showing him how to use it, she decided that she herself quite enjoyed painting. John subsequently bought her a child’s painting set for her birthday and it was with this that she produced her first significant work, a half-length portrait of a dark-skinned lady with a vacant expression and large drooping breasts. It was aptly named ‘Hangover’ by Beryl’s husband and</p>
+            </section>
+        <?php endif; ?>
+    </div>
+</div>
 
-                            <p>It is often frustrating to attempt to plan meals that are designed for one. Despite this fact, we are seeing more and more recipe books and Internet websites that are dedicated to the act of cooking for one. Divorce and the death of spouses or grown children leaving for college are all reasons that someone accustomed to cooking for more than one would suddenly need to learn how to adjust all the cooking practices utilized before into a streamlined plan of cooking that is more efficient for one person creating less.</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="tab-pane fade" id="nav-three" role="tabpanel" aria-labelledby="nav-three-tab">
-                    <!-- Tab 3 -->
-                    <div class="row">
-                        <div class="offset-xl-1 col-lg-9">
-                            <p>Beryl Cook is one of Britain’s most talented and amusing artists .Beryl’s pictures feature women of all shapes and sizes enjoying themselves .Born between the two world wars, Beryl Cook eventually left Kendrick School in Reading at the age of 15, where she went to secretarial school and then into an insurance office. After moving to London and then Hampton, she eventually married her next door neighbour from Reading, John Cook. He was an officer in the Merchant Navy and after he left the sea in 1956, they bought a pub for a year before John took a job in Southern Rhodesia with a motor company. Beryl bought their young son a box of watercolours, and when showing him how to use it, she decided that she herself quite enjoyed painting. John subsequently bought her a child’s painting set for her birthday and it was with this that she produced her first significant work, a half-length portrait of a dark-skinned lady with a vacant expression and large drooping breasts. It was aptly named ‘Hangover’ by Beryl’s husband and</p>
+<script>
+function addToCart(bookId) {
+    console.log("Adding book to cart:", bookId);
+    alert("Book added to cart!");
+    return false;
+}
+</script>
 
-                            <p>It is often frustrating to attempt to plan meals that are designed for one. Despite this fact, we are seeing more and more recipe books and Internet websites that are dedicated to the act of cooking for one. Divorce and the death of spouses or grown children leaving for college are all reasons that someone accustomed to cooking for more than one would suddenly need to learn how to adjust all the cooking practices utilized before into a streamlined plan of cooking that is more efficient for one person creating less.</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="tab-pane fade" id="nav-four" role="tabpanel" aria-labelledby="nav-four-tab">
-                    <!-- Tab 4 -->
-                    <div class="row">
-                        <div class="offset-xl-1 col-lg-9">
-                            <p>Beryl Cook is one of Britain’s most talented and amusing artists .Beryl’s pictures feature women of all shapes and sizes enjoying themselves .Born between the two world wars, Beryl Cook eventually left Kendrick School in Reading at the age of 15, where she went to secretarial school and then into an insurance office. After moving to London and then Hampton, she eventually married her next door neighbour from Reading, John Cook. He was an officer in the Merchant Navy and after he left the sea in 1956, they bought a pub for a year before John took a job in Southern Rhodesia with a motor company. Beryl bought their young son a box of watercolours, and when showing him how to use it, she decided that she herself quite enjoyed painting. John subsequently bought her a child’s painting set for her birthday and it was with this that she produced her first significant work, a half-length portrait of a dark-skinned lady with a vacant expression and large drooping breasts. It was aptly named ‘Hangover’ by Beryl’s husband and</p>
-
-                            <p>It is often frustrating to attempt to plan meals that are designed for one. Despite this fact, we are seeing more and more recipe books and Internet websites that are dedicated to the act of cooking for one. Divorce and the death of spouses or grown children leaving for college are all reasons that someone accustomed to cooking for more than one would suddenly need to learn how to adjust all the cooking practices utilized before into a streamlined plan of cooking that is more efficient for one person creating less.</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="tab-pane fade" id="nav-five" role="tabpanel" aria-labelledby="nav-five-tab">
-                    <!-- Tab 5 -->
-                    <div class="row">
-                        <div class="offset-xl-1 col-lg-9">
-                            <p>Beryl Cook is one of Britain’s most talented and amusing artists .Beryl’s pictures feature women of all shapes and sizes enjoying themselves .Born between the two world wars, Beryl Cook eventually left Kendrick School in Reading at the age of 15, where she went to secretarial school and then into an insurance office. After moving to London and then Hampton, she eventually married her next door neighbour from Reading, John Cook. He was an officer in the Merchant Navy and after he left the sea in 1956, they bought a pub for a year before John took a job in Southern Rhodesia with a motor company. Beryl bought their young son a box of watercolours, and when showing him how to use it, she decided that she herself quite enjoyed painting. John subsequently bought her a child’s painting set for her birthday and it was with this that she produced her first significant work, a half-length portrait of a dark-skinned lady with a vacant expression and large drooping breasts. It was aptly named ‘Hangover’ by Beryl’s husband and</p>
-
-                            <p>It is often frustrating to attempt to plan meals that are designed for one. Despite this fact, we are seeing more and more recipe books and Internet websites that are dedicated to the act of cooking for one. Divorce and the death of spouses or grown children leaving for college are all reasons that someone accustomed to cooking for more than one would suddenly need to learn how to adjust all the cooking practices utilized before into a streamlined plan of cooking that is more efficient for one person creating less.</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-    <!-- Books review End -->
-    <!-- Subscribe Area Start -->
-    <section class="subscribe-area" >
-        <div class="container">
-            <div class="subscribe-caption text-center  subscribe-padding section-img2-bg" data-background="/assets/img/gallery/section-bg1.jpg">
-                <div class="row justify-content-center">
-
-                    <div class="col-xl-6 col-lg-8 col-md-9">
-                        <h3>Join Newsletter</h3>
-                        <p>Lorem started its journey with cast iron (CI) products in 1980. The initial main objective was to ensure pure water and affordable irrigation.</p>
-                        <form action="#">
-                            <input type="text" placeholder="Enter your email">
-                            <button class="subscribe-btn">Subscribe</button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
 <?php
-$content = ob_get_clean(); // Lấy nội dung từ bộ đệm và gán vào biến $content
-include __DIR__ . '/../layouts/main-layout.php'; // Bao gồm layout chính
+$content = ob_get_clean();
+include __DIR__ . '/../layouts/main-layout.php';
 ?>

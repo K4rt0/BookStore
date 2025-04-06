@@ -1,35 +1,43 @@
 <?php
-function call_api_with_token($url, $method = 'GET', $data = null, $retry = true) {
-    $access_token = $_SESSION['access_token'] ?? null;
-    if (!$access_token) {
-        throw new Exception("Missing access token.");
+function call_api_with_token($url, $method = 'GET', $data = []) {
+    $token = $_SESSION['auth_token'] ?? '';
+    if (empty($token)) {
+        return [
+            'success' => false,
+            'message' => 'Authentication token is missing.',
+        ];
     }
 
     $headers = [
-        'Authorization: Bearer ' . $access_token,
-        'Content-Type: application/json'
+        'Authorization: Bearer ' . $token,
+        'Content-Type: application/json',
     ];
 
-    $ch = curl_init($url);
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
     curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-    if ($data !== null) {
+
+    if (strtoupper($method) === 'POST') {
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+    } elseif (strtoupper($method) === 'PUT') {
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'PUT');
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
     }
 
     $response = curl_exec($ch);
     $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
-    $result = json_decode($response, true);
 
-    if ($http_code === 401 && $retry && isset($result['message']) && stripos($result['message'], 'expired') !== false) {
-        if (refresh_token()) {
-            return call_api_with_token($url, $method, $data, false);
-        }
+    if ($http_code !== 200) {
+        return [
+            'success' => false,
+            'message' => 'API request failed with status ' . $http_code,
+        ];
     }
 
-    return $result;
+    return json_decode($response, true);
 }
 
 function refresh_token(): bool {

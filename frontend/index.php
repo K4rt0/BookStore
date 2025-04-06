@@ -51,7 +51,8 @@ $routes = [
     'admin/categories' => 'pages/admin/categories.php',
     'admin/category-create' => 'pages/admin/category-create.php',
     'admin/category-edit' => 'pages/admin/category-edit.php',
-
+    'admin/book-create' => 'pages/admin/book-create.php',
+    'admin/book-edit' => 'pages/admin/book-edit.php',
 ];
 
 
