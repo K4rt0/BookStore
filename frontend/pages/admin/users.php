@@ -33,13 +33,25 @@ function call_api($url) {
         CURLOPT_TIMEOUT => 30,
         CURLOPT_HTTPHEADER => [
             'Content-Type: application/json',
-            'Authorization: Bearer ' . $_SESSION['access_token'],
+            'Authorization: ' . 'Bearer ' . ($_SESSION['access_token'] ?? ''),
         ],
     ]);
+
     $response = curl_exec($curl);
+    $http_code = curl_getinfo($curl, CURLINFO_HTTP_CODE);
     curl_close($curl);
-    return json_decode($response, true);
+
+    $data = json_decode($response, true);
+
+    if ($http_code === 401 && isset($data['message']) && stripos($data['message'], 'expired') !== false) {
+        session_destroy(); // hoặc unset($_SESSION['access_token']);
+        header("Location: /login?error=expired_token");
+        exit;
+    }
+
+    return $data;
 }
+
 
 $response = call_api($api_url);
 $users = ($response && $response['success']) ? ($response['data']['users'] ?? []) : [];
@@ -161,7 +173,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 method: 'PATCH',
                 headers: {
                     'Authorization': 'Bearer <?= $_SESSION['access_token'] ?>'
-                }
+                },
+                credentials: 'include'
             })
             .then(response => response.json())
             .then(data => {

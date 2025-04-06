@@ -29,9 +29,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ? json_encode(['username' => $email, 'password' => $password])
         : json_encode(['email' => $email, 'password' => $password]);
 
-    error_log("Login endpoint: $login_endpoint");
-    error_log("Login data: $postData");
-
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL, $login_endpoint);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);

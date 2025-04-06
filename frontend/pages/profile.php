@@ -84,22 +84,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $active_tab === 'password') {
             'confirm_password' => $confirm_password
         ]);
 
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, "$api_base_url/users?action=update-password");
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "PATCH"); // Phương thức PATCH đã được sửa trước đó
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $postData);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, [
-            'Authorization: Bearer ' . $_SESSION['access_token'],
-            'Content-Type: application/json',
-            'Content-Length: ' . strlen($postData)
-        ]);
-
-        $response = curl_exec($ch);
-        $http_status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-
-        $result = json_decode($response, true);
+        $result = call_api_with_token(
+            "$api_base_url/users?action=update-profile",
+            'PUT',
+            ['full_name' => $full_name, 'phone' => $phone]
+        );
 
         if ($http_status === 200 && $result['success']) {
             $password_success = 'Password updated successfully!';
