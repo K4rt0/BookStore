@@ -48,10 +48,12 @@ $routes = [
     'admin/dashboard' => 'pages/admin/dashboard.php',
     'admin/users' => 'pages/admin/users.php',
     'admin/books' => 'pages/admin/books.php',
+    'admin/categories' => 'pages/admin/categories.php',
+
 ];
 
 
-$admin_only_routes = ['admin', 'admin/dashboard', 'admin/users', 'admin/books'];
+$admin_only_routes = ['admin', 'admin/dashboard', 'admin/users', 'admin/books','admin/categories'];
 
 $protected_routes = ['logout', 'profile'];
 
