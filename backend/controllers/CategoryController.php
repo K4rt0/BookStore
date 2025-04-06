@@ -31,16 +31,10 @@ class CategoryController {
 
         if (empty($categories))
             return ApiResponse::error("Không có danh mục nào !", 404);
-        else {
-            $categories = array_map(function($user) {
-                unset($user['password'], $user['refresh_token']);
-                return $user;
-            }, $categories);
-            
+        else
             ApiResponse::success("Lấy danh sách danh mục thành công !", 200, [
                 "categories" => $categories,
             ]);
-        }
     }
     
     // POST methods
