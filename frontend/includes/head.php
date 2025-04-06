@@ -9,7 +9,7 @@
 <link rel="shortcut icon" type="image/x-icon" href="/assets/img/icon/favicon.png">
 
 <!-- CSS here -->
-<link rel="stylesheet" href="/assets/css/bootstrap.min.css">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 <link rel="stylesheet" href="/assets/css/owl.carousel.min.css">
 <link rel="stylesheet" href="/assets/css/slicknav.css">
 <link rel="stylesheet" href="/assets/css/animate.min.css">
@@ -19,4 +19,5 @@
 <link rel="stylesheet" href="/assets/css/themify-icons.css">
 <link rel="stylesheet" href="/assets/css/slick.css">
 <link rel="stylesheet" href="/assets/css/nice-select.css">
+<link rel="stylesheet" href="/assets/css/template/header.css">
 <link rel="stylesheet" href="/assets/css/style.css">

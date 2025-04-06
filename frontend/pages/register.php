@@ -31,7 +31,7 @@ ob_start(); // Bắt đầu bộ đệm để lưu nội dung trang
         </div>
         <!-- form Footer -->
         <div class="register-footer">
-            <p> Already have an account? <a href="/pages/login.php"> Login</a> here</p>
+            <p> Already have an account? <a href="login"> Login</a> here</p>
             <button class="submit-btn3">Sign Up</button>
         </div>
     </div>

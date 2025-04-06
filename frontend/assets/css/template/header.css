@@ -1,0 +1,270 @@
+/* Header Styles */
+.header-area {
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.header-top {
+    padding: 15px 0;
+    background-color: #fff;
+}
+
+/* Logo Styles */
+.logo img {
+    height: 40px;
+    width: auto;
+}
+
+.logo-text {
+    font-size: 22px;
+    font-weight: bold;
+    color: #000066;
+    margin-left: 10px;
+}
+
+/* Search Box Styles */
+.search-box-wrapper {
+    margin-left: 20px;
+    width: 100%;
+    max-width: 500px;
+}
+
+.form-box {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 100%;
+}
+
+.form-box input {
+    width: 100%;
+    height: 45px;
+    border-radius: 50px;
+    border: 1px solid #e6e6e6;
+    background: #f9f9f9;
+    padding: 0 20px;
+    font-size: 14px;
+    color: #333;
+}
+
+.search-icon {
+    position: absolute;
+    right: 15px;
+    background: transparent;
+    border: none;
+    color: #777;
+    cursor: pointer;
+}
+
+/* Header Menu Styles */
+.header-menu {
+    display: flex;
+    align-items: center;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.header-menu li {
+    margin-left: 25px;
+    position: relative;
+}
+
+.header-menu li a {
+    color: #505050;
+    font-weight: 500;
+    text-decoration: none;
+    transition: all 0.3s ease;
+}
+
+.header-menu li a:hover {
+    color: #ff2020;
+}
+
+/* Cart Icon Styles */
+.shopping-card a {
+    position: relative;
+    display: inline-block;
+}
+
+.shopping-card i {
+    font-size: 20px;
+    color: #333;
+}
+
+.cart-icon-container {
+    position: relative;
+    display: inline-block;
+}
+
+.shopping-card img {
+    width: 24px;
+    height: 24px;
+    display: block;
+}
+
+/* Cart Count Badge */
+.cart-count {
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    background: #ff2020;
+    color: white;
+    font-size: 12px;
+    min-width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+}
+
+/* User Email Style */
+.user-email a {
+    background-color: #f8f9fa;
+    color: #333;
+    padding: 10px 20px;
+    border-radius: 30px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.user-email a:hover {
+    background-color: #e9ecef;
+}
+
+/* Button Styles */
+.header-btn {
+    padding: 10px 25px;
+    border-radius: 30px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    display: inline-block;
+}
+
+.signin-btn {
+    background-color: #ff2020;
+    color: white !important;
+    border: none;
+}
+
+.signin-btn:hover {
+    background-color: #e41c1c;
+    color: white !important;
+}
+
+.logout-btn {
+    background-color: #ff2020;
+    color: white !important;
+    border: none;
+}
+
+/* Header Bottom Nav Styles */
+.header-bottom {
+    border-top: 1px solid #f0f0f0;
+    background-color: #fff;
+}
+
+#navigation {
+    display: flex;
+    justify-content: center;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+#navigation > li {
+    margin: 0 15px;
+    position: relative;
+}
+
+#navigation > li > a {
+    display: block;
+    padding: 15px 5px;
+    color: #333;
+    font-weight: 500;
+    text-decoration: none;
+    transition: all 0.3s ease;
+}
+
+#navigation > li > a:hover,
+#navigation > li.active > a {
+    color: #ff2020;
+}
+
+/* Submenu Styles */
+.submenu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 200px;
+    background: white;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(10px);
+    transition: all 0.3s ease;
+    z-index: 999;
+    padding: 10px 0;
+    border-radius: 5px;
+    list-style: none;
+}
+
+#navigation li:hover .submenu {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.submenu li a {
+    display: block;
+    padding: 8px 20px;
+    color: #333;
+    font-size: 14px;
+    text-decoration: none;
+    transition: all 0.3s ease;
+}
+
+.submenu li a:hover {
+    background-color: #f8f9fa;
+    color: #ff2020;
+}
+
+/* Responsive adjustments */
+@media (max-width: 992px) {
+    .header-info-left,
+    .header-info-right {
+        justify-content: center;
+    }
+    
+    .search-box-wrapper {
+        margin: 15px 0;
+        max-width: 100%;
+    }
+    
+    .header-menu li {
+        margin-left: 15px;
+    }
+}
+
+@media (max-width: 768px) {
+    .header-info-left,
+    .header-info-right {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .logo {
+        margin-bottom: 15px;
+    }
+    
+    .header-menu {
+        margin-top: 15px;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+    
+    .header-menu li {
+        margin: 5px 10px;
+    }
+}
