@@ -10,13 +10,13 @@ class User {
         $this->conn = $db->getConnection();
     }
 
-    public function findByEmail($email) {
+    public function find_by_email($email) {
         $stmt = $this->conn->prepare("SELECT * FROM {$this->table} WHERE email = :email LIMIT 1");
         $stmt->execute(['email' => $email]);
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
 
-    public function findById($id) {
+    public function find_by_id($id) {
         $stmt = $this->conn->prepare("SELECT * FROM {$this->table} WHERE id = :id LIMIT 1");
         $stmt->execute(['id' => $id]);
         return $stmt->fetch(PDO::FETCH_ASSOC);
@@ -25,6 +25,56 @@ class User {
     public function create($data) {
         $stmt = $this->conn->prepare("INSERT INTO {$this->table} (id, full_name, email, phone, password) VALUES (:id, :full_name, :email, :phone, :password)");
         return $stmt->execute($data);
+    }
+
+    public function get_all_users() {
+        $stmt = $this->conn->prepare("SELECT * FROM {$this->table}");
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function get_all_users_pagination($limit, $offset, $filters = [], $sort = 'created_at_desc') {
+        $query = "SELECT * FROM {$this->table} WHERE 1=1";
+        $params = [];
+
+        if (!empty($filters['status'])) {
+            $query .= " AND status = :status";
+            $params['status'] = $filters['status'];
+        }
+
+        if (!empty($filters['search'])) {
+            $query .= " AND (full_name LIKE :search OR email LIKE :search OR phone LIKE :search)";
+            $params['search'] = '%' . $filters['search'] . '%';
+        }
+
+        switch ($sort) {
+            case 'created_at_asc':
+                $query .= " ORDER BY created_at ASC";
+                break;
+            case 'created_at_desc':
+                $query .= " ORDER BY created_at DESC";
+                break;
+            case 'updated_at_asc':
+                $query .= " ORDER BY updated_at ASC";
+                break;
+            case 'updated_at_desc':
+                $query .= " ORDER BY updated_at DESC";
+                break;
+            default:
+                $query .= " ORDER BY created_at DESC";
+                break;
+        }
+
+        $query .= " LIMIT :limit OFFSET :offset";
+        $params['limit'] = $limit;
+        $params['offset'] = $offset;
+
+        $stmt = $this->conn->prepare($query);
+        foreach ($params as $key => &$value) {
+            $stmt->bindValue(":{$key}", $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
+        }
+        
+        return $stmt->execute() ? $stmt->fetchAll(PDO::FETCH_ASSOC) : false;
     }
 
     public function update($id, $data) {
