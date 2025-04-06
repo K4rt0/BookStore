@@ -147,3 +147,51 @@
         margin: 0 auto 20px;
     }
 }
+.message-success {
+    color: green;
+    font-size: 14px;
+    font-weight: 500;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.message-error {
+    color: red;
+    font-size: 14px;
+    font-weight: 500;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.form-control {
+    border-radius: 8px;
+    border: 1px solid #ddd;
+    padding: 12px;
+    font-size: 14px;
+    transition: border-color 0.3s ease;
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: #6e8efb;
+}
+
+.form-label {
+    font-weight: 500;
+    color: #444;
+    margin-bottom: 8px;
+}
+
+.btn-primary {
+    background: #6e8efb;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 20px;
+    font-size: 16px;
+    transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+    background: #5a78e4;
+    transform: translateY(-2px);
+}

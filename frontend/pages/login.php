@@ -22,6 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'password' => $password
     ]);
 
+    // Step 1: Gọi API đăng nhập
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL, "$api_base_url/users?action=login");
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -39,11 +40,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $result = json_decode($response, true);
 
     if ($http_status === 200 && $result['success']) {
+        // Lưu token vào session
         $_SESSION['access_token'] = $result['data']['access_token'];
         $_SESSION['refresh_token'] = $result['data']['refresh_token'];
 
+        // Step 2: Gọi API lấy thông tin profile
         $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, "$api_base_url/users/me");
+        curl_setopt($ch, CURLOPT_URL, "$api_base_url/users?action=profile");
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_HTTPHEADER, [
             'Authorization: Bearer ' . $_SESSION['access_token'],
@@ -55,17 +58,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $user_data = json_decode($user_response, true);
         if ($user_status === 200 && $user_data['success']) {
+            // Lưu đầy đủ thông tin người dùng vào session
             $_SESSION['logged_in'] = true;
-            $_SESSION['username'] = $user_data['data']['username'] ?? $email;
             $_SESSION['user_id'] = $user_data['data']['id'] ?? null;
+            $_SESSION['username'] = $user_data['data']['full_name'] ?? $email; // Dùng full_name thay vì username
+            $_SESSION['email'] = $user_data['data']['email'] ?? $email;
+            $_SESSION['phone'] = $user_data['data']['phone'] ?? null;
+            $_SESSION['created_at'] = $user_data['data']['created_at'] ?? null; // Ngày tạo tài khoản
+            $_SESSION['updated_at'] = $user_data['data']['updated_at'] ?? null; // Ngày cập nhật gần nhất
         } else {
+            // Trường hợp không lấy được profile, dùng email làm fallback
             $_SESSION['logged_in'] = true;
             $_SESSION['username'] = $email;
             error_log("Failed to fetch user profile: " . ($user_data['message'] ?? 'Unknown error'));
         }
 
         $login_success = true;
-        // Kiểm tra tham số redirect và chuyển hướng tương ứng
+        // Kiểm tra tham số redirect và chuyển hướng
         $redirect = $_GET['redirect'] ?? '';
         if ($redirect === 'profile') {
             header("Location: /profile");
