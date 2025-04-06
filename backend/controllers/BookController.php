@@ -21,6 +21,7 @@ class BookController {
     
         $book = $this->book->find_by_id($id);
         if (!$book) return ApiResponse::error("Sách không tồn tại !", 404);
+        if ($book['is_deleted'] == 1) return ApiResponse::error("Sách không tồn tại !", 404);
     
         ApiResponse::success("Lấy thông tin sách thành công !", 200, $book);
     }

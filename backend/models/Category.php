@@ -39,7 +39,7 @@ class Category {
         return $stmt->execute($data);
     }
     public function get_all_categories() {
-        $stmt = $this->conn->prepare("SELECT * FROM {$this->table}");
+        $stmt = $this->conn->prepare("SELECT * FROM {$this->table} WHERE is_active = 1");
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
