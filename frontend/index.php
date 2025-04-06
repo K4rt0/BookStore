@@ -49,6 +49,8 @@ $routes = [
     'admin/users' => 'pages/admin/users.php',
     'admin/books' => 'pages/admin/books.php',
     'admin/categories' => 'pages/admin/categories.php',
+    'admin/category-create' => 'pages/admin/category-create.php',
+    'admin/category-edit' => 'pages/admin/category-edit.php',
 
 ];
 
@@ -60,6 +62,11 @@ $protected_routes = ['logout', 'profile'];
 $url = filter_var($url, FILTER_SANITIZE_URL);
 $url_parts = explode('/', $url);
 $route = implode('/', array_slice($url_parts, 0, 2));
+
+if (isset($url_parts[2])) {
+    $_GET['id'] = $url_parts[2];
+}
+
 $controller_file = $routes[$route] ?? null;
 
 
