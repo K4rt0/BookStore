@@ -12,16 +12,14 @@ class AuthMiddleware {
     public static function requireAuth($requireAdmin = false) {
         try {
             $token = self::extractBearerToken();
-            $decoded = self::verifyAndValidateToken($token);
+            $decoded = self::verifyAndValidateToken($token, $requireAdmin);
 
-            if ($requireAdmin) {
+            if ($requireAdmin)
                 self::authorizeAdmin($decoded);
-            } else {
+            else
                 self::authorizeUser($decoded);
-            }
 
             return $decoded;
-
         } catch (Exception $e) {
             ApiResponse::error($e->getMessage(), $e->getCode() ?: 401);
             exit();
@@ -32,48 +30,45 @@ class AuthMiddleware {
         $headers = getallheaders();
         $authHeader = $headers['Authorization'] ?? '';
 
-        if (!preg_match('/Bearer\s(\S+)/', $authHeader, $matches)) {
+        if (!preg_match('/Bearer\s(\S+)/', $authHeader, $matches))
             throw new Exception("Không tìm thấy Token !", 401);
-        }
 
         return $matches[1];
     }
 
-    private static function verifyAndValidateToken($token) {
-        $decoded = AuthHelper::verifyToken($token);
-        if (!$decoded) {
-            throw new Exception("Token không hợp lệ !", 401);
-        }
+    private static function verifyAndValidateToken($token, $requireAdmin = false) {
+        $decoded = null;
+        if ($requireAdmin)
+            $decoded = AuthHelper::verifyToken($token, $_ENV['ADMIN_JWT_SECRET']);
+        else
+            $decoded = AuthHelper::verifyToken($token, $_ENV['JWT_SECRET']);
 
-        if (!empty($decoded->exp) && $decoded->exp < time()) {
+        if (!$decoded)
+            throw new Exception("Token không hợp lệ !", 401);
+
+        if (!empty($decoded->exp) && $decoded->exp < time())
             throw new Exception("Token đã hết hạn !", 401);
-        }
 
         return $decoded;
     }
 
     private static function authorizeUser($decoded) {
         $userId = $decoded->sub ?? null;
-        if (!$userId) {
+        if (!$userId)
             throw new Exception("Không tìm thấy thông tin người dùng !", 401);
-        }
 
-        $user = self::$user->findById($userId);
-        if (!$user) {
+        $user = self::$user->find_by_id($userId);
+        if (!$user)
             throw new Exception("Người dùng không tồn tại !", 401);
-        }
 
-        if (!empty($user['is_blocked'])) {
+        if (!empty($user['is_blocked']))
             throw new Exception("Tài khoản đã bị khóa !", 403);
-        }
     }
 
     private static function authorizeAdmin($decoded) {
-        if (($decoded->sub ?? null) !== 'admin') {
+        if (($decoded->sub ?? null) !== 'admin')
             throw new Exception("Bạn không có quyền truy cập !", 403);
-        }
     }
 }
 
-// Khởi tạo user model
 AuthMiddleware::init();
