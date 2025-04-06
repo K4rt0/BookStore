@@ -1,16 +1,16 @@
 <?php
-require_once __DIR__ . '/../controllers/CategoryController.php';
+require_once __DIR__ . '/../controllers/BookController.php';
 
-$controller = new CategoryController();
+$controller = new BookController();
 $flag = false;
 
 switch ($_SERVER['REQUEST_METHOD']) {
     case 'GET':
-        if ($_GET['action'] == 'get-all-categories')
-            $controller->get_all_categories();
-        elseif ($_GET['action'] == 'get-all-categories-pagination') {
+        if ($_GET['action'] == 'get-all-books')
+            $controller->get_all_books();
+        elseif ($_GET['action'] == 'get-all-books-pagination') {
             AuthMiddleware::requireAuth(true);
-            $controller->get_all_categories_pagination($_GET);
+            $controller->get_all_books_pagination($_GET);
         }
         else $flag = true;
         break;

@@ -1,7 +1,7 @@
 <?php
-require_once __DIR__ . '/../models/Category.php';
+require_once __DIR__ . '/../models/Book.php';
 
-class CategoryController {
+class BookController {
     private $category;
 
     public function __construct() {
