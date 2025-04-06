@@ -10,6 +10,17 @@ class UserController {
         $this->user = new User();
     }
 
+    public function profile() {
+        $userData = AuthMiddleware::requireAuth();
+        $user = $this->user->findById($userData->sub);
+        
+        if (!$user)
+            return ApiResponse::error("Tài khoản không tồn tại !", 404);
+        
+        unset($user['password'], $user['refresh_token']);
+        ApiResponse::success("Lấy thông tin tài khoản thành công !", 200, $user);
+    }
+
     public function register() {
         $input = json_decode(file_get_contents("php://input"), true);
 
@@ -97,5 +108,44 @@ class UserController {
         ApiResponse::success("Làm mới token thành công !", 200, [
             'access_token' => $newAccessToken,
         ]);
+    }
+
+    public function update_profile() {
+        $userData = AuthMiddleware::requireAuth();
+        $input = json_decode(file_get_contents("php://input"), true);
+
+        if (empty($input['full_name']))
+            ApiResponse::error("Họ và tên không được để trống !", 400);
+        if (empty($input['phone']) || !preg_match('/^\d{10,11}$/', $input['phone']))
+            ApiResponse::error("Số điện thoại không hợp lệ !", 400);
+
+        if ($this->user->update($userData->sub, $input))
+            ApiResponse::success("Cập nhật thông tin thành công !", 200);
+        else
+            ApiResponse::error("Cập nhật thông tin thất bại !", 500);
+    }
+
+    public function update_password() {
+        $userData = AuthMiddleware::requireAuth();
+        $input = json_decode(file_get_contents("php://input"), true);
+
+        if (empty($input['old_password']))
+            ApiResponse::error("Mật khẩu cũ không được để trống !", 400);
+        if (empty($input['new_password']) || strlen($input['new_password']) < 6)
+            ApiResponse::error("Mật khẩu mới phải có ít nhất 6 ký tự !", 400);
+        if (empty($input['old_password']) == $input['new_password'])
+            ApiResponse::error("Mật khẩu mới không được giống mật khẩu cũ !", 400);
+        if ($input['new_password'] !== $input['confirm_password'])
+            ApiResponse::error("Mật khẩu xác nhận không khớp !", 400);
+
+        $user = $this->user->findById($userData->sub);
+        if (!$user || !password_verify($input['old_password'], $user['password']))
+            return ApiResponse::error("Mật khẩu cũ không đúng !", 401);
+
+        $newPasswordHash = password_hash($input['new_password'], PASSWORD_DEFAULT);
+        if ($this->user->update($userData->sub, ['password' => $newPasswordHash]))
+            ApiResponse::success("Cập nhật mật khẩu thành công !", 200);
+        else
+            ApiResponse::error("Cập nhật mật khẩu thất bại !", 500);
     }
 }
