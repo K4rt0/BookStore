@@ -26,7 +26,7 @@ class Category {
         $stmt = $this->conn->prepare("INSERT INTO {$this->table} (id, name, description, is_active) VALUES (:id, :name, :description, :is_active)");
         return $stmt->execute($data);
     }
-    
+
     public function update($id, $data) {
         $fields = [];
         foreach ($data as $key => $value) {
@@ -38,23 +38,23 @@ class Category {
         $stmt = $this->conn->prepare("UPDATE {$this->table} SET {$fields} WHERE id = :id");
         return $stmt->execute($data);
     }
-    public function get_all_users() {
+    public function get_all_categories() {
         $stmt = $this->conn->prepare("SELECT * FROM {$this->table}");
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    public function get_all_users_pagination($limit, $offset, $filters = [], $sort = 'created_at_desc') {
+    public function get_all_categories_pagination($limit, $offset, $filters = [], $sort = 'created_at_desc') {
         $query = "SELECT * FROM {$this->table} WHERE 1=1";
         $params = [];
 
-        if (!empty($filters['status'])) {
-            $query .= " AND status = :status";
-            $params['status'] = $filters['status'];
+        if (array_key_exists('is_active', $filters)) {
+            $query .= " AND is_active = :is_active";
+            $params['is_active'] = $filters['is_active'];
         }
 
         if (!empty($filters['search'])) {
-            $query .= " AND (full_name LIKE :search OR email LIKE :search OR phone LIKE :search)";
+            $query .= " AND name LIKE :search";
             $params['search'] = '%' . $filters['search'] . '%';
         }
 
@@ -84,13 +84,7 @@ class Category {
         foreach ($params as $key => &$value) {
             $stmt->bindValue(":{$key}", $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
         }
-        
-        return $stmt->execute() ? $stmt->fetchAll(PDO::FETCH_ASSOC) : false;
-    }
 
-    
-    public function delete($id) {
-        $stmt = $this->conn->prepare("DELETE FROM {$this->table} WHERE id = :id");
-        return $stmt->execute(['id' => $id]);
+        return $stmt->execute() ? $stmt->fetchAll(PDO::FETCH_ASSOC) : false;
     }
 }
