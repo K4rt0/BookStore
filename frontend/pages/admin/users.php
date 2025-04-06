@@ -44,14 +44,13 @@ function call_api($url) {
     $data = json_decode($response, true);
 
     if ($http_code === 401 && isset($data['message']) && stripos($data['message'], 'expired') !== false) {
-        session_destroy(); // hoặc unset($_SESSION['access_token']);
+        session_destroy();
         header("Location: /login?error=expired_token");
         exit;
     }
 
     return $data;
 }
-
 
 $response = call_api($api_url);
 $users = ($response && $response['success']) ? ($response['data']['users'] ?? []) : [];
@@ -120,16 +119,14 @@ $error_message = !$response || !$response['success'] ? ($response['message'] ?? 
                         </td>
                         <td><?= htmlspecialchars(substr($user['created_at'], 0, 10)) ?></td>
                         <td class="d-flex align-items-center gap-2 flex-wrap">
-                            <a href="edit_user.php?id=<?= $user['id'] ?>" class="btn btn-sm btn-warning">Edit</a>
-
                             <?php if (strtolower($user['status']) === 'active'): ?>
                                 <button type="button" class="btn btn-sm btn-danger toggle-user-status" 
-                                        data-user-id="<?= $user['id'] ?>" data-status="inactive">
+                                        data-user-id="<?= htmlspecialchars($user['id']) ?>" data-status="inactive">
                                     Disable
                                 </button>
                             <?php else: ?>
                                 <button type="button" class="btn btn-sm btn-success toggle-user-status" 
-                                        data-user-id="<?= $user['id'] ?>" data-status="active">
+                                        data-user-id="<?= htmlspecialchars($user['id']) ?>" data-status="active">
                                     Activate
                                 </button>
                             <?php endif; ?>
@@ -159,33 +156,58 @@ $error_message = !$response || !$response['success'] ? ($response['message'] ?? 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('.toggle-user-status').forEach(function (btn) {
-        btn.addEventListener('click', function () {
+        btn.addEventListener('click', async function () {
             const userId = this.getAttribute('data-user-id');
             const newStatus = this.getAttribute('data-status');
+
+            // Disable the button to prevent multiple clicks
+            btn.disabled = true;
+            const originalText = btn.textContent;
+            btn.textContent = 'Processing...';
 
             const confirmMsg = newStatus === 'active'
                 ? 'Are you sure you want to activate this user?'
                 : 'Are you sure you want to disable this user?';
 
-            if (!confirm(confirmMsg)) return;
+            if (!confirm(confirmMsg)) {
+                btn.disabled = false;
+                btn.textContent = originalText;
+                return;
+            }
 
-            fetch(`<?= $base_url ?>users?action=update-status&id=${userId}&status=${newStatus}`, {
-                method: 'PATCH',
-                headers: {
-                    'Authorization': 'Bearer <?= $_SESSION['access_token'] ?>'
-                },
-                credentials: 'include'
-            })
-            .then(response => response.json())
-            .then(data => {
+            const apiUrl = `<?= $base_url ?>user?action=update-status&id=${encodeURIComponent(userId)}&status=${newStatus}`;
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'PATCH',
+                    headers: {
+                        'Authorization': 'Bearer <?= $_SESSION['access_token'] ?? '' ?>',
+                        'Content-Type': 'application/json'
+                    },
+                });
+
+                console.log('Response status:', response.status); // Debugging: Log the status
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status} - ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                console.log('Response data:', data); // Debugging: Log the response data
+
                 if (data.success) {
                     alert(`User has been ${newStatus === 'active' ? 'activated' : 'disabled'} successfully.`);
                     location.reload();
                 } else {
-                    alert('Failed: ' + (data.message || 'Unknown error'));
+                    throw new Error(data.message || 'Unknown error');
                 }
-            })
-            .catch(() => alert('Network or server error!'));
+            } catch (err) {
+                console.error('Fetch error:', err); // Debugging: Log the error
+                alert('Failed to update user status: ' + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = originalText;
+            }
         });
     });
 });

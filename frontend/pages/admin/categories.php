@@ -9,9 +9,15 @@ $base_url = $_ENV['API_BASE_URL'];
 
 // Call API to fetch categories
 $api_url = $base_url . "category?action=get-all-categories";
+$headers = [
+    'Authorization: Bearer ' . ($_SESSION['access_token'] ?? '')
+];
+
 $ch = curl_init($api_url);
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
 $response = curl_exec($ch);
+$http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 curl_close($ch);
 
 $categories = json_decode($response, true);
@@ -27,7 +33,11 @@ $categories = json_decode($response, true);
                     </h4>
                 </div>
                 <div class="card-body">
-                    <?php if (isset($categories['success']) && $categories['success'] && !empty($categories['data'])): ?>
+                    <?php if ($http_code !== 200 || !isset($categories['success']) || !$categories['success'] || empty($categories['data'])): ?>
+                        <div class="alert alert-warning">
+                            <?= htmlspecialchars($categories['message'] ?? 'No data found or failed to connect to API.') ?>
+                        </div>
+                    <?php else: ?>
                         <table class="table table-bordered table-striped">
                             <thead>
                                 <tr>
@@ -57,7 +67,7 @@ $categories = json_decode($response, true);
                                             <!-- Toggle active/inactive button -->
                                             <button type="button"
                                                 class="btn btn-sm <?= $category['is_active'] ? 'btn-danger' : 'btn-success' ?> toggle-category-status"
-                                                data-id="<?= $category['id'] ?>"
+                                                data-id="<?= htmlspecialchars($category['id']) ?>"
                                                 data-status="<?= $category['is_active'] ? '0' : '1' ?>">
                                                 <?= $category['is_active'] ? 'Disable' : 'Enable' ?>
                                             </button>
@@ -66,10 +76,6 @@ $categories = json_decode($response, true);
                                 <?php endforeach; ?>
                             </tbody>
                         </table>
-                    <?php else: ?>
-                        <div class="alert alert-warning">
-                            <?= htmlspecialchars($categories['message'] ?? 'No data found or failed to connect to API.') ?>
-                        </div>
                     <?php endif; ?>
                 </div>
             </div>
@@ -82,35 +88,59 @@ document.addEventListener('DOMContentLoaded', function () {
     const buttons = document.querySelectorAll('.toggle-category-status');
 
     buttons.forEach(function (btn) {
-        btn.addEventListener('click', function () {
+        btn.addEventListener('click', async function () {
             const categoryId = this.getAttribute('data-id');
             const newStatus = this.getAttribute('data-status');
+
+            // Disable the button to prevent multiple clicks
+            btn.disabled = true;
+            const originalText = btn.textContent;
+            btn.textContent = 'Processing...';
 
             const confirmText = newStatus === '1'
                 ? 'Are you sure you want to activate this category?'
                 : 'Are you sure you want to disable this category?';
 
-            if (!confirm(confirmText)) return;
+            if (!confirm(confirmText)) {
+                btn.disabled = false;
+                btn.textContent = originalText;
+                return;
+            }
 
-            fetch(`<?= $base_url ?>category?action=update-active&id=${categoryId}&is_active=${newStatus}`, {
-                method: 'PATCH',
-                headers: {
-                    'Authorization': 'Bearer <?= $_SESSION['access_token'] ?>'
+            const apiUrl = `<?= $base_url ?>category?action=update-active&id=${encodeURIComponent(categoryId)}&is_active=${newStatus}`;
+            console.log('Making PATCH request to:', apiUrl); // Debugging: Log the URL
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'PATCH',
+                    headers: {
+                        'Authorization': 'Bearer <?= $_SESSION['access_token'] ?? '' ?>',
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                console.log('Response status:', response.status); // Debugging: Log the status
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status} - ${response.statusText}`);
                 }
-            })
-            .then(res => res.json())
-            .then(data => {
+
+                const data = await response.json();
+                console.log('Response data:', data); // Debugging: Log the response data
+
                 if (data.success) {
-                    alert('Category updated successfully.');
+                    alert('Category status updated successfully.');
                     location.reload();
                 } else {
-                    alert('Failed: ' + (data.message || 'Unknown error'));
+                    throw new Error(data.message || 'Unknown error occurred');
                 }
-            })
-            .catch(err => {
-                alert('Network or server error!');
-                console.error(err);
-            });
+            } catch (err) {
+                console.error('Fetch error:', err); // Debugging: Log the error
+                alert('Failed to update category status: ' + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = originalText;
+            }
         });
     });
 });
