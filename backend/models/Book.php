@@ -76,6 +76,16 @@ class Book {
             $query .= " AND (title LIKE :search OR author LIKE :search OR publisher LIKE :search)";
             $params['search'] = '%' . $filters['search'] . '%';
         }
+
+        if (!empty($filters['category'])) {
+            $placeholders = [];
+            foreach ($filters['category'] as $index => $categoryId) {
+                $placeholder = "category_{$index}";
+                $placeholders[] = ":{$placeholder}";
+                $params[$placeholder] = $categoryId;
+            }
+            $query .= " AND category_id IN (" . implode(', ', $placeholders) . ")";
+        }
     
         switch ($sort) {
             case 'price_at_asc':

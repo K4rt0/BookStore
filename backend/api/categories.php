@@ -12,6 +12,10 @@ switch ($_SERVER['REQUEST_METHOD']) {
             AuthMiddleware::requireAuth(true);
             $controller->get_all_categories_pagination($_GET);
         }
+        elseif ($_GET['action'] == 'get-category') {
+            AuthMiddleware::requireAuth(true);
+            $controller->get_category($_GET);
+        }
         else $flag = true;
         break;
 

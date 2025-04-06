@@ -48,6 +48,16 @@ class BookController {
             }
         }
 
+        if (isset($query['category'])) {
+            if (is_array($query['category'])) {
+                $filters['category'] = array_filter($query['category'], function ($categoryId) {
+                    return is_string($categoryId) && !empty($categoryId);
+                });
+            } elseif (is_string($query['category']) && !empty($query['category'])) {
+                $filters['category'] = [$query['category']];
+            }
+        }
+
         $validSortOptions = ['price_at_asc', 'price_at_desc', 'stock_qty_at_asc', 'stock_qty_at_desc'];
         $sort = isset($query['sort']) && in_array($query['sort'], $validSortOptions) ? $query['sort'] : 'price_at_desc';
 

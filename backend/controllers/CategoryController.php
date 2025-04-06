@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../models/Category.php';
+require_once __DIR__ . '/../helpers/AuthMiddleware.php';
 
 class CategoryController {
     private $category;
@@ -13,7 +14,6 @@ class CategoryController {
         $categories = $this->category->get_all_categories();
         ApiResponse::success("Lấy danh sách danh mục thành công !", 200, $categories);
     }
-
     public function get_all_categories_pagination($query) {
         $page = isset($query['page']) && is_numeric($query['page']) && $query['page'] > 0 ? (int)$query['page'] : 1;
         $limit = isset($query['limit']) && is_numeric($query['limit']) && $query['limit'] > 0 ? (int)$query['limit'] : 10;
@@ -35,6 +35,15 @@ class CategoryController {
             ApiResponse::success("Lấy danh sách danh mục thành công !", 200, [
                 "categories" => $categories,
             ]);
+    }
+    public function get_category($params) {
+        $id = $params['id'] ?? null;
+        $category = null;
+
+        if (empty($id) || !($category = $this->category->find_by_id($id)))
+            return ApiResponse::error("Danh mục không tồn tại !", 404);
+
+        ApiResponse::success("Lấy danh mục thành công !", 200, $category);
     }
     
     // POST methods
