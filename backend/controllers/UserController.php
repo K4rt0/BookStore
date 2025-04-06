@@ -28,7 +28,6 @@ class UserController {
             ]);
         }
     }
-
     public function get_all_users_pagination($query) {
         $page = isset($query['page']) && is_numeric($query['page']) && $query['page'] > 0 ? (int)$query['page'] : 1;
         $limit = isset($query['limit']) && is_numeric($query['limit']) && $query['limit'] > 0 ? (int)$query['limit'] : 10;
@@ -58,7 +57,6 @@ class UserController {
             ]);
         }
     }
-
     public function profile() {
         $userData = AuthMiddleware::requireAuth();
         $user = $this->user->find_by_id($userData->sub);
@@ -66,6 +64,18 @@ class UserController {
         if (!$user)
             return ApiResponse::error("Tài khoản không tồn tại !", 404);
         
+        unset($user['password'], $user['refresh_token']);
+        ApiResponse::success("Lấy thông tin tài khoản thành công !", 200, $user);
+    }
+    public function get_user($query) {
+        $userId = $query['id'] ?? null;
+        if (empty($userId))
+            return ApiResponse::error("Thiếu thông tin cần thiết !", 400);
+
+        $user = $this->user->find_by_id($userId);
+        if (!$user)
+            return ApiResponse::error("Tài khoản không tồn tại !", 404);
+
         unset($user['password'], $user['refresh_token']);
         ApiResponse::success("Lấy thông tin tài khoản thành công !", 200, $user);
     }

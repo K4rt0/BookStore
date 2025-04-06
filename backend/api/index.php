@@ -23,6 +23,9 @@ switch (true) {
     case str_starts_with($resource, 'admin'):
         require_once __DIR__ . '/admin.php';
         break;
+    case str_starts_with($resource, 'imgur'):
+        require_once __DIR__ . '/imgur.php';
+        break;
     case str_starts_with($resource, 'user'):
         require_once __DIR__ . '/users.php';
         break;

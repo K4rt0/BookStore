@@ -6,7 +6,10 @@ $flag = false;
 
 switch ($_SERVER['REQUEST_METHOD']) {
     case 'GET':
-        if ($_GET['action'] == 'profile') $controller->profile();
+        if ($_GET['action'] == 'profile')
+            $controller->profile();
+        elseif ($_GET['action'] == 'get-user')
+            $controller->get_user($_GET);
         elseif ($_GET['action'] == 'get-all-users') {
             AuthMiddleware::requireAuth(true);
             $controller->get_all_users();

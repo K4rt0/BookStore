@@ -1,94 +1,213 @@
 <?php
 require_once __DIR__ . '/../models/Book.php';
+require_once __DIR__ . '/../models/Category.php';
+require_once __DIR__ . '/../helpers/ImgurService.php';
 
 class BookController {
+    private $book;
+    private $imgur;
     private $category;
 
     public function __construct() {
+        $this->book = new Book();
         $this->category = new Category();
+        $this->imgur = new ImgurService();
     }
 
     // GET methods
-    public function get_all_categories() {
-        $categories = $this->category->get_all_categories();
-        ApiResponse::success("Lấy danh sách danh mục thành công !", 200, $categories);
+    public function get_book($query) {
+        $id = isset($query['id']) ? $query['id'] : null;
+        if (!$id) return ApiResponse::error("Thiếu ID sách !", 400);
+    
+        $book = $this->book->find_by_id($id);
+        if (!$book) return ApiResponse::error("Sách không tồn tại !", 404);
+    
+        ApiResponse::success("Lấy thông tin sách thành công !", 200, $book);
     }
-
-    public function get_all_categories_pagination($query) {
+    public function get_all_books() {
+        $books = $this->book->get_all_books();
+        ApiResponse::success("Lấy danh sách danh mục thành công !", 200, $books);
+    }
+    public function get_all_books_pagination($query) {
         $page = isset($query['page']) && is_numeric($query['page']) && $query['page'] > 0 ? (int)$query['page'] : 1;
         $limit = isset($query['limit']) && is_numeric($query['limit']) && $query['limit'] > 0 ? (int)$query['limit'] : 10;
         $offset = ($page - 1) * $limit;
+        $filters = [];
 
-        $filters = [
-            'is_active' => isset($query['filters']) && is_string($query['filters']) ? $query['filters'] : null,
-            'search' => isset($query['search']) && is_string($query['search']) && trim($query['search']) !== '' ? trim($query['search']) : null,
-        ];
+        if (isset($query['search']) && is_string($query['search']) && trim($query['search']) !== '')
+            $filters['search'] = trim($query['search']);
 
-        $validSortOptions = ['created_at_asc', 'created_at_desc', 'updated_at_asc', 'updated_at_desc'];
-        $sort = isset($query['sort']) && in_array($query['sort'], $validSortOptions) ? $query['sort'] : 'created_at_desc';
+        $booleanFilters = ['is_deleted', 'is_featured', 'is_new', 'is_best_seller', 'is_discounted'];
 
-        $categories = $this->category->get_all_categories_pagination($limit, $offset, $filters, $sort);
-
-        if (empty($categories))
-            return ApiResponse::error("Không có danh mục nào !", 404);
-        else {
-            $categories = array_map(function($user) {
-                unset($user['password'], $user['refresh_token']);
-                return $user;
-            }, $categories);
-            
-            ApiResponse::success("Lấy danh sách danh mục thành công !", 200, [
-                "categories" => $categories,
-            ]);
+        foreach ($booleanFilters as $filterKey) {
+            if (isset($query[$filterKey])) {
+                $value = $query[$filterKey];
+                if ($value === '1' || $value === '0') {
+                    $filters[$filterKey] = (int)$value;
+                }
+            }
         }
+
+        if (isset($query['category'])) {
+            if (is_array($query['category'])) {
+                $filters['category'] = array_filter($query['category'], function ($categoryId) {
+                    return is_string($categoryId) && !empty($categoryId);
+                });
+            } elseif (is_string($query['category']) && !empty($query['category'])) {
+                $filters['category'] = [$query['category']];
+            }
+        }
+
+        $validSortOptions = ['price_at_asc', 'price_at_desc', 'stock_qty_at_asc', 'stock_qty_at_desc'];
+        $sort = isset($query['sort']) && in_array($query['sort'], $validSortOptions) ? $query['sort'] : 'price_at_desc';
+
+        $books = $this->book->get_all_books_pagination($limit, $offset, $filters, $sort);
+
+        if (empty($books))
+            return ApiResponse::error("Không có cuốn sách nào !", 404);
+        else
+            ApiResponse::success("Lấy danh sách sách thành công !", 200, [
+                "books" => $books,
+            ]);
     }
     
     // POST methods
     public function create() {
-        $input = json_decode(file_get_contents("php://input"), true);
+        $id = bin2hex(random_bytes(16));
+        $data = [
+            'id' => $id,
+            'title' => $_POST['title'] ?? '',
+            'author' => $_POST['author'] ?? '',
+            'publisher' => $_POST['publisher'] ?? '',
+            'publication_date' => $_POST['publication_date'] ?? '',
+            'price' => $_POST['price'] ?? 0,
+            'stock_quantity' => $_POST['stock_quantity'] ?? 0,
+            'description' => $_POST['description'] ?? '',
+            'short_description' => $_POST['short_description'] ?? '',
+            'category_id' => $_POST['category_id'] ?? null,
+            'is_deleted' => isset($_POST['is_deleted']) ? 1 : 0,
+            'is_featured' => isset($_POST['is_featured']) ? 1 : 0,
+            'is_new' => isset($_POST['is_new']) ? 1 : 0,
+            'is_best_seller' => isset($_POST['is_best_seller']) ? 1 : 0,
+            'is_discounted' => isset($_POST['is_discounted']) ? 1 : 0
+        ];
 
-        if (empty($input['name']) || strlen($input['name']) < 3)
-            return ApiResponse::error("Tên danh mục phải có ít nhất 3 ký tự !", 400);
-        if ($this->category->find_by_name($input['name']))
-            return ApiResponse::error("Tên danh mục đã tồn tại !", 409);
+        if (empty($data['title']) || strlen($data['title']) < 3)
+            return ApiResponse::error("Tiêu đề phải có ít nhất 3 ký tự !", 400);
+        if (empty($data['author']))
+            return ApiResponse::error("Tác giả không được để trống !", 400);
+        if (empty($data['publisher']))
+            return ApiResponse::error("Nhà xuất bản không được để trống !", 400);
+        if (empty($data['publication_date']) || !strtotime($data['publication_date']))
+            return ApiResponse::error("Ngày xuất bản không hợp lệ !", 400);
+        if (!is_numeric($data['price']) || $data['price'] <= 0)
+            return ApiResponse::error("Giá phải là số dương !", 400);
+        if (!is_numeric($data['stock_quantity']) || $data['stock_quantity'] < 0)
+            return ApiResponse::error("Số lượng tồn kho phải là số không âm !", 400);
+        if (empty($data['category_id']) || !$this->category->find_by_id($data['category_id']))
+            return ApiResponse::error("Danh mục không hợp lệ !", 400);
+        if (!isset($_FILES['image']) || $_FILES['image']['error'] !== UPLOAD_ERR_OK)
+            return ApiResponse::error("Thiếu ảnh hoặc ảnh bị lỗi !", 400);
 
-        $input['id'] = bin2hex(random_bytes(16));
-        $input['is_active'] = $input['is_active'] ?? 1;
-        $input['description'] = $input['description'] ?? null;
+        $imageData = base64_encode(file_get_contents($_FILES['image']['tmp_name']));
+        $uploadResult = $this->imgur->upload($imageData);
 
-        $this->category->create($input);
+        $data['image_url'] = $uploadResult['data']['link'];
+        $data['delete_hash'] = $uploadResult['data']['deletehash'];
 
-        ApiResponse::success("Tạo thêm danh mục thành công !", 200);
+        if (!$uploadResult['success'])
+            return ApiResponse::error("Upload ảnh thất bại !", 500, $uploadResult);
+
+        if ($this->book->create($data))
+            ApiResponse::success("Tạo sách thành công !", 200);
+        else
+            ApiResponse::error("Tạo sách thất bại !", 500);
     }
 
     // PUT methods
     public function update() {
-        $input = json_decode(file_get_contents("php://input"), true);
-
-        if (empty($input['id']) || !$this->category->find_by_id($input['id']))
-            return ApiResponse::error("Danh mục không tồn tại !", 404);
-        if (array_key_exists('name', $input) && (empty($input['name']) || strlen($input['name']) < 3))
-            return ApiResponse::error("Tên danh mục phải có ít nhất 3 ký tự !", 400);
-        if (array_key_exists('name', $input) && $this->category->find_by_name($input['name']))
-            return ApiResponse::error("Tên danh mục đã tồn tại !", 409);
-
-        $this->category->update($input['id'], $input);
-
-        ApiResponse::success("Cập nhật danh mục thành công !", 200);
+        $id = $_POST['id'] ?? null;
+        if (!$id) return ApiResponse::error("Thiếu ID sách cần cập nhật !", 400);
+    
+        $existing = $this->book->find_by_id($id);
+        if (!$existing) return ApiResponse::error("Sách không tồn tại !", 404);
+    
+        $data = [
+            'title' => $_POST['title'] ?? $existing['title'],
+            'author' => $_POST['author'] ?? $existing['author'],
+            'publisher' => $_POST['publisher'] ?? $existing['publisher'],
+            'publication_date' => $_POST['publication_date'] ?? $existing['publication_date'],
+            'price' => $_POST['price'] ?? $existing['price'],
+            'stock_quantity' => $_POST['stock_quantity'] ?? $existing['stock_quantity'],
+            'description' => $_POST['description'] ?? $existing['description'],
+            'short_description' => $_POST['short_description'] ?? $existing['short_description'],
+            'category_id' => $_POST['category_id'] ?? $existing['category_id'],
+            'is_deleted' => isset($_POST['is_deleted']) ? 1 : 0,
+            'is_featured' => isset($_POST['is_featured']) ? 1 : 0,
+            'is_new' => isset($_POST['is_new']) ? 1 : 0,
+            'is_best_seller' => isset($_POST['is_best_seller']) ? 1 : 0,
+            'is_discounted' => isset($_POST['is_discounted']) ? 1 : 0,
+        ];
+    
+        if (strlen($data['title']) < 3)
+            return ApiResponse::error("Tiêu đề phải có ít nhất 3 ký tự !", 400);
+        if (empty($data['author']) || empty($data['publisher']))
+            return ApiResponse::error("Tác giả và NXB không được để trống !", 400);
+        if (!strtotime($data['publication_date']))
+            return ApiResponse::error("Ngày xuất bản không hợp lệ !", 400);
+        if (!is_numeric($data['price']) || $data['price'] <= 0)
+            return ApiResponse::error("Giá phải là số dương !", 400);
+        if (!is_numeric($data['stock_quantity']) || $data['stock_quantity'] < 0)
+            return ApiResponse::error("Số lượng tồn kho phải lớn hơn 0 !", 400);
+        if (empty($data['category_id']) || !$this->category->find_by_id($data['category_id']))
+            return ApiResponse::error("Danh mục không hợp lệ !", 400);
+    
+        if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
+            var_dump("test");
+            if (!empty($existing['delete_hash']))
+                $this->imgur->delete($existing['delete_hash']);
+    
+            $imageData = base64_encode(file_get_contents($_FILES['image']['tmp_name']));
+            $uploadResult = $this->imgur->upload($imageData);
+    
+            if (!$uploadResult['success'])
+                return ApiResponse::error("Upload ảnh thất bại !", 500, $uploadResult);
+    
+            $data['image_url'] = $uploadResult['data']['link'];
+            $data['delete_hash'] = $uploadResult['data']['deletehash'];
+        }
+    
+        if ($this->book->update($id, $data))
+            ApiResponse::success("Cập nhật sách thành công !");
+        else
+            ApiResponse::error("Cập nhật sách thất bại !", 500);
     }
 
     // PATCH methods
-    public function category_active($params) {
+    public function undo_delete($params) {
         $id = $params['id'] ?? null;
-        $is_active = $params['is_active'] ?? null;
+        if (!$id) return ApiResponse::error("Thiếu ID sách cần khôi phục !", 400);
+    
+        $existing = $this->book->find_by_id($id);
+        if (!$existing) return ApiResponse::error("Sách không tồn tại !", 404);
+    
+        if ($this->book->update($id, ['is_deleted' => 0]))
+            ApiResponse::success("Khôi phục sách thành công !", 200);
+        else
+            ApiResponse::error("Khôi phục sách thất bại !", 500);
+    }
 
-        if (empty($id) || !$this->category->find_by_id($id))
-            return ApiResponse::error("Danh mục không tồn tại !", 404);
-        if (!in_array($is_active, [0, 1]))
-            return ApiResponse::error("Trạng thái không hợp lệ !", 400);
-
-        $this->category->update($id, ['is_active' => $is_active]);
-
-        ApiResponse::success("Cập nhật trạng thái danh mục thành công !", 200);
+    // DELETE methods
+    public function delete($params) {
+        $id = $params['id'] ?? null;
+        if (!$id) return ApiResponse::error("Thiếu ID sách cần xóa !", 400);
+    
+        $existing = $this->book->find_by_id($id);
+        if (!$existing) return ApiResponse::error("Sách không tồn tại !", 404);
+    
+        if ($this->book->delete($id))
+            ApiResponse::success("Xóa sách thành công !", 200);
+        else
+            ApiResponse::error("Xóa sách thất bại !", 500);
     }
 }

@@ -20,9 +20,10 @@ CREATE TABLE books (
     stock_quantity INT NOT NULL DEFAULT 0,
     description TEXT,
     short_description TEXT,
-    image_url VARCHAR(2083),
+    image_url VARCHAR(100),
+    delete_hash VARCHAR(100),
     category_id CHAR(36),
-    is_active BOOLEAN DEFAULT TRUE,
+    is_deleted BOOLEAN DEFAULT FALSE,
     is_featured BOOLEAN DEFAULT FALSE,
     is_new BOOLEAN DEFAULT FALSE,
     is_best_seller BOOLEAN DEFAULT FALSE,
@@ -44,6 +45,17 @@ CREATE TABLE users (
     status ENUM('Active', 'Inactive') DEFAULT 'Active' NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE carts (
+    id CHAR(36) PRIMARY KEY,
+    user_id CHAR(36) NOT NULL,
+    book_id CHAR(36) NOT NULL,
+    quantity INT NOT NULL DEFAULT 1,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (book_id) REFERENCES books(id)
 );
 
 CREATE TABLE orders (
