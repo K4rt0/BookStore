@@ -5,6 +5,7 @@ CREATE TABLE categories (
     id CHAR(36) PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     description TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
@@ -21,6 +22,13 @@ CREATE TABLE books (
     short_description TEXT,
     image_url VARCHAR(2083),
     category_id CHAR(36),
+    is_active BOOLEAN DEFAULT TRUE,
+    is_featured BOOLEAN DEFAULT FALSE,
+    is_new BOOLEAN DEFAULT FALSE,
+    is_best_seller BOOLEAN DEFAULT FALSE,
+    is_discounted BOOLEAN DEFAULT FALSE,
+    rating DECIMAL(3,2) DEFAULT 0.00,
+    rating_count INT DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (category_id) REFERENCES categories(id)

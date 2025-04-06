@@ -20,14 +20,16 @@ $uri = $_GET['route'] ?? '';
 $resource = explode('?', $uri)[0];
 
 switch (true) {
-    case str_starts_with($resource, 'users'):
-        require_once __DIR__ . '/users.php';
-        break;
     case str_starts_with($resource, 'admin'):
         require_once __DIR__ . '/admin.php';
         break;
+    case str_starts_with($resource, 'user'):
+        require_once __DIR__ . '/users.php';
+        break;
+    case str_starts_with($resource, 'category'):
+        require_once __DIR__ . '/categories.php';
+        break;
     default:
-        http_response_code(404);
-        echo json_encode(['message' => 'Không tìm thấy route']);
+        ApiResponse::error("Không tìm thấy route !", 404);
         break;
 }
