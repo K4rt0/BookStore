@@ -2,23 +2,46 @@
 $page_title = "Book Shop - Details";
 ob_start(); // Start buffer to save page content
 
+// Start the session to access user_id and access_token
+session_start();
+
 // Get book ID from URL parameter
 $book_id = isset($_GET['id']) ? $_GET['id'] : null;
-$base_url = $_ENV['API_BASE_URL'];
+$base_url = $_ENV['API_BASE_URL'] ?? 'https://your-api.com';
+$access_token = $_SESSION['access_token'] ?? null;
+$user_id = $_SESSION['user_id'] ?? null;
+
+// Log the access token and user_id for debugging
+error_log("Access Token: " . ($access_token ?? "Not set"));
+error_log("User ID: " . ($user_id ?? "Not set"));
 
 // Initialize book data
 $book = null;
 
 if ($book_id) {
     // Fetch book data from API
-    $api_url = $base_url . "books?action=get-book&id=" . urlencode($book_id);
-    $book_json = file_get_contents($api_url);
+    $api_url = $base_url . "/book?action=get-book&id=" . urlencode($book_id);
     
-    if ($book_json) {
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $api_url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        "Authorization: Bearer " . ($access_token ?? ""),
+        "Content-Type: application/json"
+    ]);
+    
+    $book_json = curl_exec($ch);
+    $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $error = curl_error($ch);
+    curl_close($ch);
+    
+    if ($book_json && $http_code === 200) {
         $response = json_decode($book_json, true);
         if ($response['success'] && $response['code'] == 200) {
             $book = $response['data'];
         }
+    } else {
+        error_log("Failed to fetch book data: HTTP $http_code, cURL Error: " . ($error ?: "None"));
     }
 }
 
@@ -27,212 +50,8 @@ if (!$book) {
     $error_message = "Book not found or has been deleted";
 }
 ?>
+<link rel="stylesheet" href="/assets/css/template/book-details.css">
 
-<style>
-/* General Section Styling */
-.services-area2 {
-    padding: 40px 0;
-    background: #f9f9f9;
-}
-.container {
-    max-width: 1200px;
-    margin: 0 auto;
-}
-
-/* Book Details Section */
-.single-services {
-    display: flex;
-    align-items: center;
-    border: none;
-    padding: 20px;
-    background: #fff;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    border-radius: 8px;
-    margin-bottom: 30px;
-}
-.features-img img {
-    max-width: 200px;
-    height: auto;
-    margin-right: 30px;
-    border-radius: 5px;
-}
-.features-caption {
-    flex: 1;
-}
-.features-caption h3 {
-    font-size: 28px;
-    margin-bottom: 10px;
-    color: #333;
-}
-.features-caption p {
-    font-size: 16px;
-    color: #666;
-    margin-bottom: 15px;
-}
-.price span {
-    font-size: 22px;
-    color: #e74c3c;
-    font-weight: bold;
-}
-.review {
-    margin: 15px 0;
-    display: flex;
-    align-items: center;
-}
-.review .rating {
-    margin-right: 10px;
-}
-.review p {
-    margin: 0;
-    font-size: 14px;
-    color: #666;
-}
-.white-btn {
-    background: #fff;
-    border: 1px solid #ddd;
-    padding: 10px 20px;
-    border-radius: 5px;
-    text-decoration: none;
-    color: #333;
-    transition: background 0.3s;
-}
-.white-btn:hover {
-    background: #f0f0f0;
-}
-.border-btn {
-    border: 1px solid #ddd;
-    padding: 8px 12px;
-    border-radius: 5px;
-    margin-left: 10px;
-    text-decoration: none;
-}
-.share-btn i {
-    color: #333;
-}
-
-/* Tabs Section */
-.our-client {
-    padding: 40px 0;
-}
-.nav-tabs {
-    border-bottom: 2px solid #eee;
-    margin-bottom: 20px;
-}
-.nav-tabs .nav-link {
-    margin-right: 20px;
-    padding: 12px 25px;
-    border: none;
-    border-radius: 5px 5px 0 0;
-    color: #666;
-    font-size: 16px;
-    font-weight: 500;
-    transition: all 0.3s;
-}
-.nav-tabs .nav-link:hover {
-    background: #f5f5f5;
-    color: #333;
-}
-.nav-tabs .nav-link.active {
-    background: #fff;
-    border-bottom: 3px solid #e74c3c;
-    color: #333;
-    font-weight: 600;
-}
-.tab-content {
-    background: #fff;
-    padding: 30px;
-    border-radius: 8px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-}
-
-/* Description Tab Styling */
-.description-content h4 {
-    font-size: 22px;
-    color: #333;
-    margin-bottom: 15px;
-    border-left: 4px solid #e74c3c;
-    padding-left: 15px;
-}
-.description-content .main-description {
-    font-size: 16px;
-    line-height: 1.8;
-    color: #555;
-    margin-bottom: 20px;
-    padding: 15px;
-    background: #f9f9f9;
-    border-radius: 5px;
-}
-.description-content .short-description {
-    font-size: 15px;
-    line-height: 1.6;
-    color: #777;
-    font-style: italic;
-    padding: 10px 15px;
-    border-left: 2px solid #ddd;
-}
-
-/* Author Tab Styling */
-.author-content h4 {
-    font-size: 22px;
-    color: #333;
-    margin-bottom: 15px;
-    border-left: 4px solid #e74c3c;
-    padding-left: 15px;
-}
-.author-content .author-info {
-    padding: 15px;
-    background: #f9f9f9;
-    border-radius: 5px;
-}
-.author-content .author-info p {
-    font-size: 16px;
-    line-height: 1.8;
-    color: #555;
-    margin-bottom: 10px;
-    display: flex;
-    align-items: center;
-}
-.author-content .author-info p i {
-    margin-right: 10px;
-    color: #e74c3c;
-    font-size: 18px;
-}
-.author-content .author-info p strong {
-    color: #333;
-    font-weight: 600;
-    min-width: 150px;
-}
-
-/* Responsive Design */
-@media (max-width: 768px) {
-    .single-services {
-        flex-direction: column;
-        text-align: center;
-    }
-    .features-img img {
-        margin-right: 0;
-        margin-bottom: 20px;
-    }
-    .nav-tabs .nav-link {
-        padding: 10px 15px;
-        font-size: 14px;
-    }
-    .tab-content {
-        padding: 20px;
-    }
-    .description-content h4,
-    .author-content h4 {
-        font-size: 20px;
-    }
-    .author-content .author-info p {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-    .author-content .author-info p strong {
-        margin-bottom: 5px;
-    }
-}
-</style>
 
 <div class="services-area2">
     <div class="container">
@@ -254,7 +73,7 @@ if (!$book) {
                                     <h3><?= htmlspecialchars($book['title'] ?? 'Unknown Title') ?></h3>
                                     <p>By <?= htmlspecialchars($book['author'] ?? 'Unknown Author') ?></p>
                                     <div class="price">
-                                        <span>$<?= htmlspecialchars(number_format(($book['price'] ?? 0) / 1000, 2)) ?></span>
+                                        <span>₫<?= htmlspecialchars(number_format(($book['price'] ?? 0), 2)) ?></span>
                                     </div>
                                     <div class="review">
                                         <div class="rating">
@@ -273,7 +92,7 @@ if (!$book) {
                                         </div>
                                         <p class="mb-0">(<?= htmlspecialchars($book['rating_count'] ?? '0') ?> Review)</p>
                                     </div>
-                                    <a href="#" class="white-btn mr-10 p-4" onclick="addToCart('<?= htmlspecialchars($book['id'] ?? '') ?>')">Add to Cart</a>
+                                    <a href="#" class="white-btn mr-10 p-4" onclick="addToCart('<?= htmlspecialchars($book['id'] ?? '') ?>'); return false;">Add to Cart</a>
                                     <a href="#" class="border-btn share-btn"><i class="fas fa-share-alt"></i></a>
                                 </div>
                             </div>
@@ -329,11 +148,53 @@ if (!$book) {
 </div>
 
 <script>
-function addToCart(bookId) {
-    console.log("Adding book to cart:", bookId);
-    alert("Book added to cart!");
-    return false;
-}
+document.addEventListener('DOMContentLoaded', function () {
+    // Variables for API call
+    const userId = "<?php echo htmlspecialchars($user_id ?? ''); ?>";
+    const apiBaseUrl = "<?php echo htmlspecialchars($base_url); ?>";
+    const accessToken = "<?php echo htmlspecialchars($access_token ?? ''); ?>";
+
+    // Make addToCart function globally accessible
+    window.addToCart = function(bookId) {
+        // Check if user is logged in
+        if (!userId || !accessToken) {
+            alert('Please log in to add items to your cart.');
+            window.location.href = '/login.php'; // Redirect to login page
+            return;
+        }
+
+        // Prepare the request body
+        const requestBody = {
+            user_id: userId,
+            book_id: bookId,
+            quantity: 1
+        };
+
+        // Call the add-to-cart API
+        fetch(`${apiBaseUrl}/cart?action=add-to-cart`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(requestBody)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Book added to cart successfully!');
+                // Optionally, redirect to the cart page
+                // window.location.href = '/cart.php';
+            } else {
+                alert('Failed to add book to cart: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error adding book to cart:', error);
+            alert('Error adding book to cart. Please try again.');
+        });
+    };
+});
 </script>
 
 <?php
