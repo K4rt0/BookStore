@@ -36,9 +36,9 @@ switch (true) {
     case str_starts_with($resource, 'book'):
         require_once __DIR__ . '/books.php';
         break;
-    // case str_starts_with($resource, 'cart'):
-    //     require_once __DIR__ . '/books.php';
-    //     break;
+    case str_starts_with($resource, 'cart'):
+        require_once __DIR__ . '/carts.php';
+        break;
     default:
         ApiResponse::error("Không tìm thấy route !", 404);
         break;
