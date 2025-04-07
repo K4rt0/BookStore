@@ -164,7 +164,6 @@ class BookController {
             return ApiResponse::error("Danh mục không hợp lệ !", 400);
     
         if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
-            var_dump("test");
             if (!empty($existing['delete_hash']))
                 $this->imgur->delete($existing['delete_hash']);
     
