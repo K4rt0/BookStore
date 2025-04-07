@@ -191,7 +191,7 @@ $authors = ['Buster Hyman', 'Phil Harmonic', 'Cam L. Toe', 'Otto Matic', 'Juan A
                             <?php foreach ($books_data['data'] as $book): ?>
                                 <div class="col-xxl-4 col-xl-4 col-lg-4 col-md-12 col-sm-6">
                                     <div class="properties pb-30">
-                                        <div class="properties-card" style="border: 1px solid #eee; border-radius: 8px; overflow: hidden; height: 100%; display: flex; flex-direction: column; cursor: pointer;" onclick="window.location.href='book-details.html?id=<?= urlencode($book['id'] ?? '') ?>'">
+                                        <div class="properties-card" style="border: 1px solid #eee; border-radius: 8px; overflow: hidden; height: 100%; display: flex; flex-direction: column; cursor: pointer;" onclick="window.location.href='/book-details?id=<?= urlencode($book['id'] ?? '') ?>'">
                                             <!-- Book Image Container with Fixed Height -->
                                             <div class="properties-img" style="height: 12rem; overflow: hidden; position: relative;">
                                                 <a href="/book-details?id=<?= urlencode($book['id'] ?? '') ?>">

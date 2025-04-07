@@ -29,6 +29,11 @@ function makeApiRequest($url, $access_token, $method = 'GET', $body = null) {
     if ($method === 'POST') {
         curl_setopt($ch, CURLOPT_POST, true);
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($body));
+    } elseif ($method === 'PATCH') {
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'PATCH');
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($body));
+    } elseif ($method === 'DELETE') {
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'DELETE');
     }
     
     $response = curl_exec($ch);
@@ -69,6 +74,7 @@ $errors = [];
 if ($cart_response['success'] && !empty($cart_response['data'])) {
     foreach ($cart_response['data'] as $item) {
         $book_id = $item['book_id'];
+        $cart_item_id = $item['id'];
         $book_response = fetchBookDetails($api_base_url, $access_token, $book_id);
         
         if ($book_response['success'] && $book_response['data']) {
@@ -79,6 +85,7 @@ if ($cart_response['success'] && !empty($cart_response['data'])) {
             $subtotal += $total;
             
             $cart_with_book_details[] = [
+                'id' => $cart_item_id,
                 'book_id' => $book_id,
                 'title' => $book['title'],
                 'image_url' => $book['image_url'],
@@ -121,12 +128,13 @@ if ($cart_response['success'] && !empty($cart_response['data'])) {
                             <th scope="col">Price</th>
                             <th scope="col">Quantity</th>
                             <th scope="col">Total</th>
+                            <th scope="col">Action</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php if (!empty($cart_with_book_details)): ?>
                             <?php foreach ($cart_with_book_details as $item): ?>
-                                <tr data-book-id="<?php echo htmlspecialchars($item['book_id']); ?>">
+                                <tr data-cart-id="<?php echo htmlspecialchars($item['id']); ?>" data-book-id="<?php echo htmlspecialchars($item['book_id']); ?>">
                                     <td>
                                         <div class="media">
                                             <div class="d-flex">
@@ -143,8 +151,8 @@ if ($cart_response['success'] && !empty($cart_response['data'])) {
                                     <td>
                                         <div class="product_count">
                                             <span class="input-number-decrement"> <i class="ti-minus"></i></span>
-                                           <input
-                                                id="quantity-<?php echo $item['book_id']; ?>"
+                                            <input
+                                                id="quantity-<?php echo htmlspecialchars($item['id']); ?>"
                                                 class="input-number"
                                                 type="text"
                                                 value="<?php echo $item['quantity']; ?>"
@@ -155,15 +163,30 @@ if ($cart_response['success'] && !empty($cart_response['data'])) {
                                     </td>
                                     <td>
                                         <h5
-                                            id="total-<?php echo $item['book_id']; ?>"
+                                            id="total-<?php echo htmlspecialchars($item['id']); ?>"
                                             class="total">₫<?php echo number_format($item['total'], 2); ?></h5>
+                                    </td>
+                                    <td>
+                                        <button class="delete-item btn btn-danger btn-sm">
+                                            <i class="ti-trash"></i> Delete
+                                        </button>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
-                           
+                            <tr>
+                                <td></td>
+                                <td></td>
+                                <td>
+                                    <h5>Subtotal</h5>
+                                </td>
+                                <td>
+                                    <h5 id="subtotal">₫<?php echo number_format($subtotal, 2); ?></h5>
+                                </td>
+                                <td></td>
+                            </tr>
                         <?php else: ?>
                             <tr>
-                                <td colspan="4" class="text-center">
+                                <td colspan="5" class="text-center">
                                     <p>Your cart is empty!</p>
                                     <?php if (!empty($errors)): ?>
                                         <?php foreach ($errors as $error): ?>
@@ -195,86 +218,69 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const formatCurrency = amount => `₫${amount.toLocaleString('vi-VN', { minimumFractionDigits: 2 })}`;
 
-    const addToCartSingleUnit = (bookId, row) => {
-        if (pendingRequests[bookId]) return;
-        pendingRequests[bookId] = true;
-
-        const input = row.querySelector(`#quantity-${bookId}`);
-        const totalElement = row.querySelector(`#total-${bookId}`);
-        const price = parseFloat(row.querySelector('.price').getAttribute('data-price'));
-        const currentQuantity = parseInt(input.value) || 0;
-        const newQuantity = currentQuantity + 1;
-
-        fetch(`${apiBaseUrl}/cart?action=add-to-cart`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${accessToken}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ user_id: userId, book_id: bookId, quantity: 1 }) // luôn cộng thêm 1
-        })
-        .then(response => {
-            if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
-            return response.json();
-        })
-        .then(data => {
-            delete pendingRequests[bookId];
-            if (data.success) {
-                // Tăng UI chỉ cho item tương ứng
-                input.value = newQuantity;
-                totalElement.textContent = formatCurrency(price * newQuantity);
-                recalculateSubtotal();
-            } else {
-                throw new Error(data.message || 'Failed to add to cart.');
-            }
-        })
-        .catch(error => {
-            delete pendingRequests[bookId];
-            console.error('Error adding item:', error.message);
-            alert(`Error: ${error.message}`);
-        });
+    // Debounce function to prevent multiple rapid clicks
+    const debounce = (func, wait) => {
+        let timeout;
+        return (...args) => {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => func(...args), wait);
+        };
     };
 
+    const updateCartItem = (cartId, newQuantity, row) => {
+        if (pendingRequests[cartId]) {
+            console.log(`Request already in progress for cartId: ${cartId}`);
+            return;
+        }
+        pendingRequests[cartId] = true;
 
+        console.log(`Updating item with cartId: ${cartId}, newQuantity: ${newQuantity}`);
 
-    const updateQuantity = (bookId, newQuantity, row) => {
-        if (pendingRequests[bookId]) return;
+        const input = row.querySelector(`#quantity-${cartId}`);
+        const totalElement = row.querySelector(`#total-${cartId}`);
 
-        const input = row.querySelector('.input-number');
+        if (!input || !totalElement) {
+            console.error(`Input or total element not found for cartId: ${cartId}`);
+            delete pendingRequests[cartId];
+            return;
+        }
+
         const price = parseFloat(row.querySelector('.price').getAttribute('data-price'));
-        const totalElement = row.querySelector('.total');
-        const originalQuantity = parseInt(input.value);
+        const originalQuantity = parseInt(input.value) || 0;
 
         input.value = newQuantity;
         totalElement.textContent = formatCurrency(price * newQuantity);
+
+        // Recalculate subtotal after updating this item
         recalculateSubtotal();
 
-        pendingRequests[bookId] = true;
-        const url = `${apiBaseUrl}/cart?action=add-to-cart`;
-
-        fetch(url, {
-            method: 'POST',
+        // Make PATCH request to update cart
+        fetch(`${apiBaseUrl}/cart?action=update-cart`, {
+            method: 'PATCH',
             headers: {
                 'Authorization': `Bearer ${accessToken}`,
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ user_id: userId, book_id: bookId, quantity: newQuantity })
+            body: JSON.stringify({
+                id: cartId,
+                quantity: newQuantity
+            })
         })
         .then(response => {
             if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
             return response.json();
         })
         .then(data => {
-            delete pendingRequests[bookId];
+            delete pendingRequests[cartId];
             if (!data.success) {
-                throw new Error(`Failed to update quantity: ${data.message}`);
+                throw new Error(data.message || 'Failed to update cart.');
             }
-            window.location.reload();
         })
         .catch(error => {
-            delete pendingRequests[bookId];
-            console.error('Error updating quantity:', error.message);
+            delete pendingRequests[cartId];
+            console.error('Error updating cart:', error.message);
             alert(`Error: ${error.message}`);
+            // Revert UI on error
             input.value = originalQuantity;
             totalElement.textContent = formatCurrency(price * originalQuantity);
             recalculateSubtotal();
@@ -282,14 +288,77 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     
+    const deleteItem = (cartId, row) => {
+        if (pendingRequests[cartId]) return;
+        pendingRequests[cartId] = true;
+
+        console.log(`Deleting item with cartId: ${cartId}`);
+
+        fetch(`${apiBaseUrl}/cart?action=delete&id=${cartId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => {
+            if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+            return response.json();
+        })
+        .then(data => {
+            delete pendingRequests[cartId];
+            if (data.success) {
+                row.remove();
+                recalculateSubtotal();
+                if (!document.querySelectorAll('tr[data-cart-id]').length) {
+                    window.location.reload();
+                }
+            } else {
+                throw new Error(data.message || 'Failed to delete item from cart.');
+            }
+        })
+        .catch(error => {
+            delete pendingRequests[cartId];
+            console.error('Error deleting item:', error.message);
+            alert(`Error: ${error.message}`);
+        });
+    };
+
+    const addToCartSingleUnit = (cartId, row) => {
+        const input = row.querySelector(`#quantity-${cartId}`);
+        const currentQuantity = parseInt(input.value) || 0;
+        const newQuantity = currentQuantity;
+
+        console.log(`Adding to cart, cartId: ${cartId}, Current quantity: ${currentQuantity}, New quantity: ${newQuantity}`);
+
+        updateCartItem(cartId, newQuantity, row);
+    };
+
+    const updateQuantity = (cartId, newQuantity, row) => {
+        updateCartItem(cartId, newQuantity, row);
+    };
+
     const recalculateSubtotal = () => {
         let subtotal = 0;
-        document.querySelectorAll('tr[data-book-id]').forEach(row => {
+        const rows = document.querySelectorAll('tr[data-cart-id]');
+        console.log(`Recalculating subtotal for ${rows.length} items`);
+
+        rows.forEach(row => {
+            const cartId = row.getAttribute('data-cart-id');
             const price = parseFloat(row.querySelector('.price').getAttribute('data-price'));
-            const quantity = parseInt(row.querySelector('.input-number').value) || 0;
+            const quantityInput = row.querySelector(`#quantity-${cartId}`);
+            const quantity = parseInt(quantityInput.value) || 0;
+
+            console.log(`Cart ID: ${cartId}, Quantity: ${quantity}, Price: ${price}`);
+
             subtotal += price * quantity;
         });
-        document.getElementById('subtotal').textContent = formatCurrency(subtotal);
+
+        const subtotalElement = document.getElementById('subtotal');
+        if (subtotalElement) {
+            subtotalElement.textContent = formatCurrency(subtotal);
+        }
+
         const checkoutBtn = document.querySelector('.checkout_btn');
         if (checkoutBtn) {
             if (subtotal <= 0) {
@@ -302,42 +371,68 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // Increment quantity
+    // Increment quantity with debouncing
     document.querySelectorAll('.input-number-increment').forEach(button => {
-        button.addEventListener('click', () => {
+        const debouncedIncrement = debounce(() => {
             const row = button.closest('tr');
-            const bookId = row.getAttribute('data-book-id');
-            const input = row.querySelector('.input-number');
+            const cartId = row.getAttribute('data-cart-id');
+            const input = row.querySelector(`#quantity-${cartId}`);
             const currentQuantity = parseInt(input.value) || 0;
             const maxQuantity = parseInt(input.getAttribute('max')) || 10;
 
+            console.log(`Increment button clicked for cartId: ${cartId}, Current quantity: ${currentQuantity}`);
+
             if (currentQuantity < maxQuantity) {
-                addToCartSingleUnit(bookId, row);
+                addToCartSingleUnit(cartId, row);
             } else {
                 alert(`Maximum quantity (${maxQuantity}) reached.`);
             }
-        });
+        }, 300); // 300ms debounce
+
+        button.addEventListener('click', debouncedIncrement);
     });
 
     // Decrement quantity
     document.querySelectorAll('.input-number-decrement').forEach(button => {
         button.addEventListener('click', () => {
             const row = button.closest('tr');
-            const bookId = row.getAttribute('data-book-id');
-            const input = row.querySelector('.input-number');
+            const cartId = row.getAttribute('data-cart-id');
+            const input = row.querySelector(`#quantity-${cartId}`);
+            const totalElement = row.querySelector(`#total-${cartId}`);
+
+            if (!input || !totalElement) {
+                console.error(`Input or total element not found for cartId: ${cartId}`);
+                return;
+            }
+
             const currentQuantity = parseInt(input.value) || 0;
 
-            if (currentQuantity > 1) {
-                const newQuantity = currentQuantity - 1;
-                updateQuantity(bookId, newQuantity, row);
-            } else if (currentQuantity === 1 && confirm('Remove this item from your cart?')) {
-                removeItem(bookId, row);
+            if (currentQuantity >= 1) {
+                const newQuantity = currentQuantity;
+                updateQuantity(cartId, newQuantity, row);
+            } else if (currentQuantity === 0) {
+                if (confirm('Remove this item from your cart?')) {
+                    deleteItem(cartId, row);
+                }
+            } else {
+                console.log(`Quantity is already 0 for cartId: ${cartId}`);
             }
         });
     });
+
+    // Delete item
+    document.querySelectorAll('.delete-item').forEach(button => {
+        button.addEventListener('click', () => {
+            const row = button.closest('tr');
+            const cartId = row.getAttribute('data-cart-id');
+            deleteItem(cartId, row);
+        });
+    });
+
+    // Initial subtotal calculation
+    recalculateSubtotal();
 });
 </script>
-
 
 <?php
 $content = ob_get_clean();
