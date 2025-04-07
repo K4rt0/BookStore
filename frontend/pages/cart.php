@@ -6,7 +6,7 @@ ob_start();
 session_start();
 
 // API base URL and session variables
-$api_base_url = $_ENV['API_BASE_URL'] ?? 'http://localhost:8000';
+$api_base_url = $_ENV['API_BASE_URL'];
 $access_token = $_SESSION['access_token'] ?? null;
 $user_id = $_SESSION['user_id'] ?? null;
 
@@ -160,12 +160,7 @@ if ($cart_response['success'] && !empty($cart_response['data'])) {
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
-                            <tr>
-                                <td></td>
-                                <td></td>
-                                <td><h5>Subtotal</h5></td>
-                                <td><h5 id="subtotal">₫<?php echo number_format($subtotal, 2); ?></h5></td>
-                            </tr>
+                           
                         <?php else: ?>
                             <tr>
                                 <td colspan="4" class="text-center">
@@ -286,49 +281,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
-    const removeItem = (bookId, row) => {
-        if (pendingRequests[bookId]) return;
-
-        pendingRequests[bookId] = true;
-        const url = `${apiBaseUrl}/cart?action=remove-item`;
-
-        fetch(url, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${accessToken}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ user_id: userId, book_id: bookId })
-        })
-        .then(response => {
-            if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
-            return response.json();
-        })
-        .then(data => {
-            delete pendingRequests[bookId];
-            if (data.success) {
-                row.remove();
-                if (!document.querySelector('tr[data-book-id]')) {
-                    document.querySelector('tbody').innerHTML = `
-                        <tr>
-                            <td colspan="4" class="text-center">
-                                <p>Your cart is empty!</p>
-                            </td>
-                        </tr>`;
-                    document.querySelector('.checkout_btn_inner')?.remove();
-                }
-                recalculateSubtotal();
-            } else {
-                throw new Error(`Failed to remove item: ${data.message}`);
-            }
-        })
-        .catch(error => {
-            delete pendingRequests[bookId];
-            console.error('Error removing item:', error.message);
-            alert(`Error: ${error.message}`);
-        });
-    };
-
+    
     const recalculateSubtotal = () => {
         let subtotal = 0;
         document.querySelectorAll('tr[data-book-id]').forEach(row => {
