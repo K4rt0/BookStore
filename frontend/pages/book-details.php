@@ -1,13 +1,12 @@
 <?php
 $page_title = "Book Shop - Details";
-ob_start(); // Start buffer to save page content
+ob_start(); 
 
-// Start the session to access user_id and access_token
 session_start();
 
 // Get book ID from URL parameter
 $book_id = isset($_GET['id']) ? $_GET['id'] : null;
-$base_url = $_ENV['API_BASE_URL'] ?? 'https://your-api.com';
+$base_url = $_ENV['API_BASE_URL'];
 $access_token = $_SESSION['access_token'] ?? null;
 $user_id = $_SESSION['user_id'] ?? null;
 
@@ -15,11 +14,9 @@ $user_id = $_SESSION['user_id'] ?? null;
 error_log("Access Token: " . ($access_token ?? "Not set"));
 error_log("User ID: " . ($user_id ?? "Not set"));
 
-// Initialize book data
 $book = null;
 
 if ($book_id) {
-    // Fetch book data from API
     $api_url = $base_url . "/book?action=get-book&id=" . urlencode($book_id);
     
     $ch = curl_init();
@@ -45,7 +42,6 @@ if ($book_id) {
     }
 }
 
-// If book data is not available, show error
 if (!$book) {
     $error_message = "Book not found or has been deleted";
 }
@@ -149,28 +145,23 @@ if (!$book) {
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    // Variables for API call
     const userId = "<?php echo htmlspecialchars($user_id ?? ''); ?>";
     const apiBaseUrl = "<?php echo htmlspecialchars($base_url); ?>";
     const accessToken = "<?php echo htmlspecialchars($access_token ?? ''); ?>";
 
-    // Make addToCart function globally accessible
     window.addToCart = function(bookId) {
-        // Check if user is logged in
         if (!userId || !accessToken) {
             alert('Please log in to add items to your cart.');
-            window.location.href = '/login.php'; // Redirect to login page
+            window.location.href = '/login.php'; 
             return;
         }
 
-        // Prepare the request body
         const requestBody = {
             user_id: userId,
             book_id: bookId,
             quantity: 1
         };
 
-        // Call the add-to-cart API
         fetch(`${apiBaseUrl}/cart?action=add-to-cart`, {
             method: 'POST',
             headers: {
@@ -183,8 +174,6 @@ document.addEventListener('DOMContentLoaded', function () {
         .then(data => {
             if (data.success) {
                 alert('Book added to cart successfully!');
-                // Optionally, redirect to the cart page
-                // window.location.href = '/cart.php';
             } else {
                 alert('Failed to add book to cart: ' + data.message);
             }

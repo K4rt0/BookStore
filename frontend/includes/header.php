@@ -15,31 +15,34 @@ function getCartCountFromApi() {
     }
     
     $user_id = $_SESSION['user_id'];
-    $api_url = "/api/cart/count?user_id=" . $user_id;
-    
-    // Get API token from session if available
-    $headers = [];
-    if (isset($_SESSION['api_token'])) {
-        $headers[] = "Authorization: Bearer " . $_SESSION['api_token'];
-    }
+    $api_base_url = $_ENV['API_BASE_URL'] ?? 'https://your-api.com';
+    $access_token = $_SESSION['access_token'] ?? null;
+    $api_url = $api_base_url . "/cart?action=get-cart";
     
     // Set up cURL request
     $ch = curl_init($api_url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    
-    if (!empty($headers)) {
-        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-    }
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        "Authorization: Bearer " . ($access_token ?? ""),
+        "Content-Type: " . "application/json"
+    ]);
     
     // Execute request
     $response = curl_exec($ch);
     $status_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $error = curl_error($ch);
     curl_close($ch);
     
     // Process response
     if ($status_code == 200) {
         $data = json_decode($response, true);
-        return isset($data['count']) ? $data['count'] : 0;
+        if ($data['success'] && isset($data['data'])) {
+            // Count the number of items in the cart (array length of data)
+            $count = count($data['data']);
+            return $count;
+        }
+    } else {
+        error_log("Failed to fetch cart count: HTTP $status_code, cURL Error: " . ($error ?: "None"));
     }
     
     return 0;
@@ -85,7 +88,6 @@ if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true) {
                                 </div>
                                 <div class="header-info-right d-flex align-items-center">
                                     <ul class="header-menu">
-                                        
                                         <li class="">
                                             <a href="/cart">
                                                 <div class="cart-icon-container">
@@ -156,3 +158,55 @@ if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true) {
     </div>
 </header>
 
+<!-- JavaScript for updating cart count -->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // Variables for API call
+    const userId = "<?php echo htmlspecialchars($_SESSION['user_id'] ?? ''); ?>";
+    const apiBaseUrl = "<?php echo htmlspecialchars($_ENV['API_BASE_URL'] ?? 'https://your-api.com'); ?>";
+    const accessToken = "<?php echo htmlspecialchars($_SESSION['access_token'] ?? ''); ?>";
+
+    // Function to update cart count
+    window.updateCartCount = function() {
+        // If user is not logged in, set count to 0
+        if (!userId || !accessToken) {
+            const cartCountElement = document.querySelector('.cart-count');
+            if (cartCountElement) {
+                cartCountElement.textContent = '0';
+            }
+            return;
+        }
+
+        // Fetch updated cart count from API
+        fetch(`${apiBaseUrl}/cart?action=get-cart`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            const cartCountElement = document.querySelector('.cart-count');
+            if (cartCountElement) {
+                if (data.success && data.data) {
+                    // Update cart count with the number of items in the cart
+                    cartCountElement.textContent = data.data.length;
+                } else {
+                    cartCountElement.textContent = '0';
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching cart count:', error);
+            const cartCountElement = document.querySelector('.cart-count');
+            if (cartCountElement) {
+                cartCountElement.textContent = '0';
+            }
+        });
+    };
+
+    // Initial update of cart count on page load
+    window.updateCartCount();
+});
+</script>

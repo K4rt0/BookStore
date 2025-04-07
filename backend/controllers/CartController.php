@@ -16,7 +16,7 @@ class CartController {
 
     // GET methods
     public function get_cart($user_id) {
-        var_dump($user_id);
+        // var_dump($user_id);
         if (!$user_id) return ApiResponse::error("Thiếu ID người dùng !", 400);
 
         $cart_items = $this->cart->get_cart_by_user($user_id);

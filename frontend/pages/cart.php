@@ -1,16 +1,23 @@
 <?php
 $page_title = "Book Shop - Cart";
-ob_start(); // Bắt đầu bộ đệm để lưu nội dung trang
+ob_start();
 
-// API base URL and access token from environment/session
-$api_base_url = $_ENV['API_BASE_URL'] ?? 'https://your-api.com';
+// Start session
+session_start();
+
+// API base URL and session variables
+$api_base_url = $_ENV['API_BASE_URL'] ?? 'http://localhost:8000';
 $access_token = $_SESSION['access_token'] ?? null;
+$user_id = $_SESSION['user_id'] ?? null;
 
-// Log the access token for debugging
-error_log("Access Token: " . ($access_token ?? "Not set"));
+// Redirect to login if not authenticated
+if (empty($access_token) || empty($user_id)) {
+    header("Location: /login");
+    exit();
+}
 
 // Function to make API requests
-function makeApiRequest($url, $access_token) {
+function makeApiRequest($url, $access_token, $method = 'GET', $body = null) {
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL, $url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -19,76 +26,42 @@ function makeApiRequest($url, $access_token) {
         "Content-Type: application/json"
     ]);
     
+    if ($method === 'POST') {
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($body));
+    }
+    
     $response = curl_exec($ch);
     $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     $error = curl_error($ch);
     curl_close($ch);
     
-    // Log the API request details for debugging
-    error_log("API Request URL: " . $url);
-    error_log("API Response: " . ($response ?: "No response"));
-    if ($error) {
-        error_log("cURL Error: " . $error);
-    }
-    
-    // Check if the request failed at the network level
     if ($response === false) {
-        return [
-            "success" => false,
-            "message" => "Request failed: " . ($error ?: "Unknown cURL error"),
-            "data" => null,
-            "http_code" => $http_code
-        ];
+        return ["success" => false, "message" => "Request failed: " . $error, "data" => null, "http_code" => $http_code];
     }
     
-    // Try to decode the response as JSON
     $decoded_response = json_decode($response, true);
     if (json_last_error() !== JSON_ERROR_NONE) {
-        return [
-            "success" => false,
-            "message" => "Invalid JSON response: " . json_last_error_msg(),
-            "data" => null,
-            "http_code" => $http_code,
-            "raw_response" => $response
-        ];
+        return ["success" => false, "message" => "Invalid JSON response", "data" => null, "http_code" => $http_code];
     }
     
-    // Check if the HTTP status code is 200 and the response is successful
-    if ($http_code === 200 && isset($decoded_response['success']) && $decoded_response['success']) {
-        return $decoded_response;
-    } else {
-        return [
-            "success" => false,
-            "message" => $decoded_response['message'] ?? "Unable to fetch data (HTTP $http_code)",
-            "data" => null,
-            "http_code" => $http_code,
-            "raw_response" => $response
-        ];
-    }
+    return $http_code === 200 && isset($decoded_response['success']) && $decoded_response['success']
+        ? $decoded_response
+        : ["success" => false, "message" => $decoded_response['message'] ?? "Unable to fetch data (HTTP $http_code)", "data" => null, "http_code" => $http_code];
 }
 
-// Function to fetch cart data
+// Fetch cart data
 function fetchCartData($api_base_url, $access_token) {
-    $url = $api_base_url . "/cart?action=get-cart";
-    return makeApiRequest($url, $access_token);
+    return makeApiRequest($api_base_url . "/cart?action=get-cart", $access_token);
 }
 
-// Function to fetch book details by book_id
+// Fetch book details by book_id
 function fetchBookDetails($api_base_url, $access_token, $book_id) {
-    $url = $api_base_url . "/book?action=get-book&id=" . urlencode($book_id);
-    return makeApiRequest($url, $access_token);
+    return makeApiRequest($api_base_url . "/book?action=get-book&id=" . urlencode($book_id), $access_token);
 }
 
-// Check if the access token is set
-if (empty($access_token)) {
-    $errors[] = "Access token is not set. Please log in.";
-    $cart_response = ["success" => false, "message" => "Access token missing", "data" => null];
-} else {
-    // Fetch cart data
-    $cart_response = fetchCartData($api_base_url, $access_token);
-}
-
-// Fetch book details for each cart item
+// Fetch cart and book details
+$cart_response = fetchCartData($api_base_url, $access_token);
 $cart_with_book_details = [];
 $subtotal = 0;
 $errors = [];
@@ -106,6 +79,7 @@ if ($cart_response['success'] && !empty($cart_response['data'])) {
             $subtotal += $total;
             
             $cart_with_book_details[] = [
+                'book_id' => $book_id,
                 'title' => $book['title'],
                 'image_url' => $book['image_url'],
                 'price' => $price,
@@ -118,9 +92,6 @@ if ($cart_response['success'] && !empty($cart_response['data'])) {
     }
 } else {
     $errors[] = "Failed to fetch cart data: " . ($cart_response['message'] ?? "Unknown error");
-    if (isset($cart_response['raw_response'])) {
-        $errors[] = "Raw API Response: " . htmlspecialchars(substr($cart_response['raw_response'], 0, 200));
-    }
 }
 
 ?>
@@ -138,8 +109,7 @@ if ($cart_response['success'] && !empty($cart_response['data'])) {
         </div>
     </div> 
 </div>
-<!-- Hero area End -->
-<!--================Cart Area =================-->
+
 <section class="cart_area section-padding">
     <div class="container">
         <div class="cart_inner">
@@ -155,8 +125,8 @@ if ($cart_response['success'] && !empty($cart_response['data'])) {
                     </thead>
                     <tbody>
                         <?php if (!empty($cart_with_book_details)): ?>
-                            <?php foreach ($cart_with_book_details as $index => $item): ?>
-                                <tr>
+                            <?php foreach ($cart_with_book_details as $item): ?>
+                                <tr data-book-id="<?php echo htmlspecialchars($item['book_id']); ?>">
                                     <td>
                                         <div class="media">
                                             <div class="d-flex">
@@ -168,20 +138,34 @@ if ($cart_response['success'] && !empty($cart_response['data'])) {
                                         </div>
                                     </td>
                                     <td>
-                                        <h5>₫<?php echo number_format($item['price'], 2); ?></h5>
+                                        <h5 class="price" data-price="<?php echo $item['price']; ?>">₫<?php echo number_format($item['price'], 2); ?></h5>
                                     </td>
                                     <td>
                                         <div class="product_count">
                                             <span class="input-number-decrement"> <i class="ti-minus"></i></span>
-                                            <input class="input-number" type="text" value="<?php echo $item['quantity']; ?>" min="0" max="10" data-index="<?php echo $index; ?>">
+                                           <input
+                                                id="quantity-<?php echo $item['book_id']; ?>"
+                                                class="input-number"
+                                                type="text"
+                                                value="<?php echo $item['quantity']; ?>"
+                                                min="0"
+                                                max="10">
                                             <span class="input-number-increment"> <i class="ti-plus"></i></span>
                                         </div>
                                     </td>
                                     <td>
-                                        <h5>₫<?php echo number_format($item['total'], 2); ?></h5>
+                                        <h5
+                                            id="total-<?php echo $item['book_id']; ?>"
+                                            class="total">₫<?php echo number_format($item['total'], 2); ?></h5>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
+                            <tr>
+                                <td></td>
+                                <td></td>
+                                <td><h5>Subtotal</h5></td>
+                                <td><h5 id="subtotal">₫<?php echo number_format($subtotal, 2); ?></h5></td>
+                            </tr>
                         <?php else: ?>
                             <tr>
                                 <td colspan="4" class="text-center">
@@ -194,90 +178,215 @@ if ($cart_response['success'] && !empty($cart_response['data'])) {
                                 </td>
                             </tr>
                         <?php endif; ?>
-
-                        <?php if (!empty($cart_with_book_details)): ?>
-                            <tr class="bottom_button">
-                                <td>
-                                    <a class="btn" href="#">Update Cart</a>
-                                </td>
-                                <td></td>
-                                <td></td>
-                                <td>
-                                    <div class="cupon_text float-right">
-                                        <a class="btn" href="#">Close Coupon</a>
-                                    </div>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td></td>
-                                <td></td>
-                                <td>
-                                    <h5>Subtotal</h5>
-                                </td>
-                                <td>
-                                    <h5>₫<?php echo number_format($subtotal, 2); ?></h5>
-                                </td>
-                            </tr>
-                            <tr class="shipping_area">
-                                <td></td>
-                                <td></td>
-                                <td>
-                                    <h5>Shipping</h5>
-                                </td>
-                                <td>
-                                    <div class="shipping_box">
-                                        <ul class="list">
-                                            <li>
-                                                Flat Rate: ₫5,000
-                                                <input type="radio" aria-label="Radio button for following text input">
-                                            </li>
-                                            <li>
-                                                Free Shipping
-                                                <input type="radio" aria-label="Radio button for following text input">
-                                            </li>
-                                            <li>
-                                                Flat Rate: ₫10,000
-                                                <input type="radio" aria-label="Radio button for following text input">
-                                            </li>
-                                            <li class="active">
-                                                Local Delivery: ₫2,000
-                                                <input type="radio" aria-label="Radio button for following text input">
-                                            </li>
-                                        </ul>
-                                        <h6>
-                                            Calculate Shipping
-                                            <i class="fa fa-caret-down" aria-hidden="true"></i>
-                                        </h6>
-                                        <select class="shipping_select">
-                                            <option value="1">Bangladesh</option>
-                                            <option value="2">India</option>
-                                            <option value="4">Pakistan</option>
-                                        </select>
-                                        <select class="shipping_select section_bg">
-                                            <option value="1">Select a State</option>
-                                            <option value="2">Select a State</option>
-                                            <option value="4">Select a State</option>
-                                        </select>
-                                        <input class="post_code" type="text" placeholder="Postcode/Zipcode" />
-                                        <a class="btn" href="#">Update Details</a>
-                                    </div>
-                                </td>
-                            </tr>
-                        <?php endif; ?>
                     </tbody>
                 </table>
-                <div class="checkout_btn_inner float-right">
-                    <a class="btn" href="#">Continue Shopping</a>
-                    <?php if (!empty($cart_with_book_details)): ?>
-                        <a class="btn checkout_btn" href="#">Proceed to checkout</a>
-                    <?php endif; ?>
-                </div>
+                <?php if (!empty($cart_with_book_details)): ?>
+                    <div class="checkout_btn_inner float-right">
+                        <a class="btn" href="/category">Continue Shopping</a>
+                        <a class="btn checkout_btn" href="/checkout">Proceed to Checkout</a>
+                    </div>
+                <?php endif; ?>
             </div>
         </div>
     </div>
 </section>
 
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const userId = "<?php echo htmlspecialchars($user_id ?? ''); ?>";
+    const apiBaseUrl = "<?php echo htmlspecialchars($api_base_url); ?>";
+    const accessToken = "<?php echo htmlspecialchars($access_token ?? ''); ?>";
+    let pendingRequests = {};
+
+    const formatCurrency = amount => `₫${amount.toLocaleString('vi-VN', { minimumFractionDigits: 2 })}`;
+
+    const addToCartSingleUnit = (bookId, row) => {
+        if (pendingRequests[bookId]) return;
+        pendingRequests[bookId] = true;
+
+        const input = row.querySelector(`#quantity-${bookId}`);
+        const totalElement = row.querySelector(`#total-${bookId}`);
+        const price = parseFloat(row.querySelector('.price').getAttribute('data-price'));
+        const currentQuantity = parseInt(input.value) || 0;
+        const newQuantity = currentQuantity + 1;
+
+        fetch(`${apiBaseUrl}/cart?action=add-to-cart`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ user_id: userId, book_id: bookId, quantity: 1 }) // luôn cộng thêm 1
+        })
+        .then(response => {
+            if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+            return response.json();
+        })
+        .then(data => {
+            delete pendingRequests[bookId];
+            if (data.success) {
+                // Tăng UI chỉ cho item tương ứng
+                input.value = newQuantity;
+                totalElement.textContent = formatCurrency(price * newQuantity);
+                recalculateSubtotal();
+            } else {
+                throw new Error(data.message || 'Failed to add to cart.');
+            }
+        })
+        .catch(error => {
+            delete pendingRequests[bookId];
+            console.error('Error adding item:', error.message);
+            alert(`Error: ${error.message}`);
+        });
+    };
+
+
+
+    const updateQuantity = (bookId, newQuantity, row) => {
+        if (pendingRequests[bookId]) return;
+
+        const input = row.querySelector('.input-number');
+        const price = parseFloat(row.querySelector('.price').getAttribute('data-price'));
+        const totalElement = row.querySelector('.total');
+        const originalQuantity = parseInt(input.value);
+
+        input.value = newQuantity;
+        totalElement.textContent = formatCurrency(price * newQuantity);
+        recalculateSubtotal();
+
+        pendingRequests[bookId] = true;
+        const url = `${apiBaseUrl}/cart?action=add-to-cart`;
+
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ user_id: userId, book_id: bookId, quantity: newQuantity })
+        })
+        .then(response => {
+            if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+            return response.json();
+        })
+        .then(data => {
+            delete pendingRequests[bookId];
+            if (!data.success) {
+                throw new Error(`Failed to update quantity: ${data.message}`);
+            }
+            window.location.reload();
+        })
+        .catch(error => {
+            delete pendingRequests[bookId];
+            console.error('Error updating quantity:', error.message);
+            alert(`Error: ${error.message}`);
+            input.value = originalQuantity;
+            totalElement.textContent = formatCurrency(price * originalQuantity);
+            recalculateSubtotal();
+        });
+    };
+
+    const removeItem = (bookId, row) => {
+        if (pendingRequests[bookId]) return;
+
+        pendingRequests[bookId] = true;
+        const url = `${apiBaseUrl}/cart?action=remove-item`;
+
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ user_id: userId, book_id: bookId })
+        })
+        .then(response => {
+            if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+            return response.json();
+        })
+        .then(data => {
+            delete pendingRequests[bookId];
+            if (data.success) {
+                row.remove();
+                if (!document.querySelector('tr[data-book-id]')) {
+                    document.querySelector('tbody').innerHTML = `
+                        <tr>
+                            <td colspan="4" class="text-center">
+                                <p>Your cart is empty!</p>
+                            </td>
+                        </tr>`;
+                    document.querySelector('.checkout_btn_inner')?.remove();
+                }
+                recalculateSubtotal();
+            } else {
+                throw new Error(`Failed to remove item: ${data.message}`);
+            }
+        })
+        .catch(error => {
+            delete pendingRequests[bookId];
+            console.error('Error removing item:', error.message);
+            alert(`Error: ${error.message}`);
+        });
+    };
+
+    const recalculateSubtotal = () => {
+        let subtotal = 0;
+        document.querySelectorAll('tr[data-book-id]').forEach(row => {
+            const price = parseFloat(row.querySelector('.price').getAttribute('data-price'));
+            const quantity = parseInt(row.querySelector('.input-number').value) || 0;
+            subtotal += price * quantity;
+        });
+        document.getElementById('subtotal').textContent = formatCurrency(subtotal);
+        const checkoutBtn = document.querySelector('.checkout_btn');
+        if (checkoutBtn) {
+            if (subtotal <= 0) {
+                checkoutBtn.classList.add('disabled');
+                checkoutBtn.setAttribute('disabled', 'disabled');
+            } else {
+                checkoutBtn.classList.remove('disabled');
+                checkoutBtn.removeAttribute('disabled');
+            }
+        }
+    };
+
+    // Increment quantity
+    document.querySelectorAll('.input-number-increment').forEach(button => {
+        button.addEventListener('click', () => {
+            const row = button.closest('tr');
+            const bookId = row.getAttribute('data-book-id');
+            const input = row.querySelector('.input-number');
+            const currentQuantity = parseInt(input.value) || 0;
+            const maxQuantity = parseInt(input.getAttribute('max')) || 10;
+
+            if (currentQuantity < maxQuantity) {
+                addToCartSingleUnit(bookId, row);
+            } else {
+                alert(`Maximum quantity (${maxQuantity}) reached.`);
+            }
+        });
+    });
+
+    // Decrement quantity
+    document.querySelectorAll('.input-number-decrement').forEach(button => {
+        button.addEventListener('click', () => {
+            const row = button.closest('tr');
+            const bookId = row.getAttribute('data-book-id');
+            const input = row.querySelector('.input-number');
+            const currentQuantity = parseInt(input.value) || 0;
+
+            if (currentQuantity > 1) {
+                const newQuantity = currentQuantity - 1;
+                updateQuantity(bookId, newQuantity, row);
+            } else if (currentQuantity === 1 && confirm('Remove this item from your cart?')) {
+                removeItem(bookId, row);
+            }
+        });
+    });
+});
+</script>
+
+
 <?php
-$content = ob_get_clean(); // Lấy nội dung từ bộ đệm và gán vào biến $content
-include __DIR__ . '/../layouts/main-layout.php'; // Bao gồm layout chính
+$content = ob_get_clean();
+include __DIR__ . '/../layouts/main-layout.php';
 ?>

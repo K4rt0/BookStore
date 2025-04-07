@@ -160,7 +160,6 @@ document.addEventListener('DOMContentLoaded', function () {
             const userId = this.getAttribute('data-user-id');
             const newStatus = this.getAttribute('data-status');
 
-            // Disable the button to prevent multiple clicks
             btn.disabled = true;
             const originalText = btn.textContent;
             btn.textContent = 'Processing...';
