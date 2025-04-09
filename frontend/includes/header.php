@@ -15,7 +15,7 @@ function getCartCountFromApi() {
     }
     
     $user_id = $_SESSION['user_id'];
-    $api_base_url = $_ENV['API_BASE_URL'] ?? 'https://your-api.com';
+    $api_base_url = $_ENV['API_BASE_URL'];
     $access_token = $_SESSION['access_token'] ?? null;
     $api_url = $api_base_url . "/cart?action=get-cart";
     
@@ -78,11 +78,13 @@ if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true) {
                                     </div>
                                     <!-- Search Box -->
                                     <div class="search-box-wrapper">
-                                        <form action="#" class="form-box">
-                                            <input type="text" name="Search" placeholder="Search book by author or publisher">
+                                        <form action="/search" method="GET" class="form-box">
+                                            <input type="text" id="search-input" name="keyword" placeholder="Search book by author or publisher" autocomplete="off">
                                             <button type="submit" class="search-icon">
                                                 <i class="ti-search"></i>
                                             </button>
+                                            <!-- Autocomplete Dropdown -->
+                                            <div id="autocomplete-dropdown" class="autocomplete-dropdown"></div>
                                         </form>
                                     </div>
                                 </div>
@@ -158,7 +160,124 @@ if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true) {
     </div>
 </header>
 
-<!-- JavaScript for updating cart count -->
+<!-- CSS for Autocomplete Dropdown -->
+<style>
+/* CSS for Autocomplete Dropdown - Improved Version */
+.search-box-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+.autocomplete-dropdown {
+    position: absolute;
+    top: calc(100% + 5px);
+    left: 0;
+    right: 0;
+    background-color: #fff;
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    max-height: 350px;
+    overflow-y: auto;
+    z-index: 1000;
+    display: none;
+    padding: 8px 0;
+    transition: all 0.3s ease;
+}
+
+.autocomplete-dropdown.show {
+    display: block;
+    animation: fadeIn 0.2s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.autocomplete-item {
+    padding: 12px 16px;
+    cursor: pointer;
+    border-bottom: 1px solid #f0f0f0;
+    display: flex;
+    align-items: center;
+    transition: background-color 0.2s ease;
+}
+
+.autocomplete-item:last-child {
+    border-bottom: none;
+}
+
+.autocomplete-item:hover {
+    background-color: #f7f9fc;
+}
+
+.autocomplete-item img {
+    width: 50px;
+    height: 65px;
+    object-fit: cover;
+    margin-right: 15px;
+    border-radius: 6px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.autocomplete-item .book-info {
+    flex: 1;
+}
+
+.autocomplete-item .book-title {
+    font-weight: 600;
+    font-size: 14px;
+    color: #333;
+    margin-bottom: 4px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.autocomplete-item .book-author {
+    font-size: 13px;
+    color: #6b7280;
+    font-style: italic;
+}
+
+/* Custom scrollbar for the dropdown */
+.autocomplete-dropdown::-webkit-scrollbar {
+    width: 6px;
+}
+
+.autocomplete-dropdown::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+}
+
+.autocomplete-dropdown::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 10px;
+}
+
+.autocomplete-dropdown::-webkit-scrollbar-thumb:hover {
+    background: #a1a1a1;
+}
+
+/* Empty state style */
+.autocomplete-empty {
+    padding: 20px;
+    text-align: center;
+    color: #6b7280;
+    font-style: italic;
+}
+
+/* Highlight matching text */
+.highlight {
+    background-color: rgba(255, 204, 0, 0.2);
+    padding: 0 2px;
+    border-radius: 2px;
+}
+</style>
+
+<!-- JavaScript for Autocomplete and Cart Count -->
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     // Variables for API call
@@ -190,7 +309,6 @@ document.addEventListener('DOMContentLoaded', function () {
             const cartCountElement = document.querySelector('.cart-count');
             if (cartCountElement) {
                 if (data.success && data.data) {
-                    // Update cart count with the number of items in the cart
                     cartCountElement.textContent = data.data.length;
                 } else {
                     cartCountElement.textContent = '0';
@@ -208,5 +326,93 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Initial update of cart count on page load
     window.updateCartCount();
+
+    // Autocomplete Search Functionality
+    const searchInput = document.getElementById('search-input');
+    const autocompleteDropdown = document.getElementById('autocomplete-dropdown');
+
+    // Debounce function to limit API calls
+    const debounce = (func, wait) => {
+        let timeout;
+        return (...args) => {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => func(...args), wait);
+        };
+    };
+
+    // Function to fetch books from API
+    const fetchBooks = async (keyword) => {
+        if (!keyword.trim()) {
+            autocompleteDropdown.innerHTML = '';
+            autocompleteDropdown.classList.remove('show');
+            return;
+        }
+
+        try {
+            const response = await fetch(`${apiBaseUrl}/book?action=get-all-books-pagination&page=1&limit=6&is_deleted=0&search=${encodeURIComponent(keyword)}`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            const data = await response.json();
+
+            if (data.success && data.data && data.data.books && data.data.books.length > 0) {
+                displayAutocompleteResults(data.data.books);
+            } else {
+                autocompleteDropdown.innerHTML = '<div class="autocomplete-item">No results found</div>';
+                autocompleteDropdown.classList.add('show');
+            }
+        } catch (error) {
+            console.error('Error fetching books:', error);
+            autocompleteDropdown.innerHTML = '<div class="autocomplete-item">Error fetching results</div>';
+            autocompleteDropdown.classList.add('show');
+        }
+    };
+
+    // Function to display autocomplete results
+    const displayAutocompleteResults = (books) => {
+        autocompleteDropdown.innerHTML = '';
+        books.forEach(book => {
+            const item = document.createElement('div');
+            item.classList.add('autocomplete-item');
+            item.innerHTML = `
+                <img src="${book.image_url || '/assets/img/placeholder.jpg'}" alt="${book.title}">
+                <div class="book-info">
+                    <div class="book-title">${book.title}</div>
+                    <div class="book-author">${book.author}</div>
+                </div>
+            `;
+            item.addEventListener('click', () => {
+                window.location.href = `/book-details?id=${book.id}`;
+            });
+            autocompleteDropdown.appendChild(item);
+        });
+        autocompleteDropdown.classList.add('show');
+    };
+
+    // Debounced search function
+    const debouncedSearch = debounce(fetchBooks, 300);
+
+    // Event listener for input
+    searchInput.addEventListener('input', (e) => {
+        const keyword = e.target.value;
+        debouncedSearch(keyword);
+    });
+
+    // Hide dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!searchInput.contains(e.target) && !autocompleteDropdown.contains(e.target)) {
+            autocompleteDropdown.classList.remove('show');
+        }
+    });
+
+    // Show dropdown when focusing on input
+    searchInput.addEventListener('focus', () => {
+        if (searchInput.value.trim()) {
+            debouncedSearch(searchInput.value);
+        }
+    });
 });
 </script>
