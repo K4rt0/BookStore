@@ -225,7 +225,7 @@ $error_message = isset($error_message) ? $error_message : ($_GET['error'] ?? nul
             <div class="row">
                 <div class="col-lg-8">
                     <h3>Billing Information</h3>
-                    <form class="row contact_form" action="" method="post" novalidate="novalidate">
+                    <form class="row contact_form" action="" method="post" novalidate="novalidate" id="checkout_form">
                         <div class="col-md-12 form-group p_star">
                             <input type="text" class="form-control" id="first" name="first_name" value="<?php echo htmlspecialchars($user_data['full_name'] ?? ''); ?>" placeholder="**Full Name" required />
                         </div>
@@ -246,6 +246,8 @@ $error_message = isset($error_message) ? $error_message : ($_GET['error'] ?? nul
                         <input type="hidden" name="order_info" value="Payment for Book Shop order">
                         <input type="hidden" name="payment_method" id="payment_method" value="">
                         <button type="submit" class="btn" id="checkout_btn">Place Order</button>
+                        <!-- PayPal Button Container -->
+                        <div id="paypal-button-container" style="display: none; margin-top: 10px;"></div>
                     </form>
                 </div>
                 <div class="col-lg-4">
@@ -312,20 +314,38 @@ $error_message = isset($error_message) ? $error_message : ($_GET['error'] ?? nul
 </section>
 
 <script>
+// Update payment method and toggle PayPal button visibility
 function updatePaymentMethod(method) {
     const paymentMethodInput = document.getElementById('payment_method');
     const checkoutBtn = document.getElementById('checkout_btn');
-    
+    const paypalButtonContainer = document.getElementById('paypal-button-container');
+
     if (method === 'online') {
         // Default to VNPay if "Online Payment" is selected
         const onlineMethod = document.querySelector('input[name="online_payment_method"]:checked').value;
         paymentMethodInput.value = onlineMethod;
-        checkoutBtn.textContent = `Pay with ${onlineMethod.charAt(0).toUpperCase() + onlineMethod.slice(1)}`;
+        if (onlineMethod === 'paypal') {
+            checkoutBtn.style.display = 'none';
+            paypalButtonContainer.style.display = 'block';
+        } else {
+            checkoutBtn.style.display = 'block';
+            paypalButtonContainer.style.display = 'none';
+            checkoutBtn.textContent = `Pay with ${onlineMethod.charAt(0).toUpperCase() + onlineMethod.slice(1)}`;
+        }
     } else if (method === 'vnpay' || method === 'paypal' || method === 'momo') {
         paymentMethodInput.value = method;
-        checkoutBtn.textContent = `Pay with ${method.charAt(0).toUpperCase() + method.slice(1)}`;
+        if (method === 'paypal') {
+            checkoutBtn.style.display = 'none';
+            paypalButtonContainer.style.display = 'block';
+        } else {
+            checkoutBtn.style.display = 'block';
+            paypalButtonContainer.style.display = 'none';
+            checkoutBtn.textContent = `Pay with ${method.charAt(0).toUpperCase() + method.slice(1)}`;
+        }
     } else if (method === 'cod') {
         paymentMethodInput.value = method;
+        checkoutBtn.style.display = 'block';
+        paypalButtonContainer.style.display = 'none';
         checkoutBtn.textContent = 'Place Order';
     }
 }
@@ -339,8 +359,101 @@ document.querySelectorAll('input[name="online_payment_method"]').forEach(input =
     });
 });
 
-// Set default payment method
 updatePaymentMethod('vnpay');
+
+const paypalClientId = '<?php echo htmlspecialchars($_ENV['PAYPAL_CLIENT_ID'] ?? ''); ?>';
+// Load PayPal SDK dynamically
+const script = document.createElement('script');
+script.src = `https://www.paypal.com/sdk/js?client-id=${paypalClientId}&currency=USD`;
+script.async = true;
+script.onload = () => {
+    paypal.Buttons({
+        style: {
+            shape: "rect",
+            layout: "vertical",
+            color: "gold",
+            label: "paypal",
+        },
+        onClick: () => {
+            // Validate form before proceeding
+            const form = document.getElementById('checkout_form');
+            if (!form.checkValidity()) {
+                form.reportValidity();
+                return false;
+            }
+        },
+        createOrder: async () => {
+            try {
+                // Collect form data
+                const formData = new FormData(document.getElementById('checkout_form'));
+                const data = Object.fromEntries(formData.entries());
+
+                // Prepare order data
+                const orderInfo = {
+                    user_id: '<?php echo $user_id; ?>',
+                    full_name: data.first_name,
+                    phone: data.phone,
+                    total_price: parseFloat(data.amount),
+                    shipping_address: data.address1,
+                    payment_method: 'PAYPAL'
+                };
+
+                const cartItems = <?php echo json_encode($_SESSION['cart_items'] ?? []); ?>;
+                const cartIds = cartItems.map(item => item.id);
+
+                const orderData = {
+                    order_info: orderInfo,
+                    carts: cartIds
+                };
+
+                // Create order via API
+                const response = await fetch('<?php echo $api_base_url; ?>/order?action=create-order', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer <?php echo $access_token; ?>'
+                    },
+                    body: JSON.stringify(orderData)
+                });
+
+                const orderResult = await response.json();
+
+                if (!orderResult.success || !orderResult.data.order_id) {
+                    throw new Error(orderResult.message || 'Failed to create order');
+                }
+
+                const orderId = orderResult.data.order_id;
+
+                // Get PayPal payment URL
+                const paymentResponse = await fetch('<?php echo $api_base_url; ?>/payment?action=create-paypal-url', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer <?php echo $access_token; ?>'
+                    },
+                    body: JSON.stringify({
+                        order_id: orderId,
+                        amount: parseFloat(data.amount),
+                        order_info: `Payment for order #${orderId}`
+                    })
+                });
+
+                const paymentResult = await paymentResponse.json();
+
+                if (!paymentResult.success || !paymentResult.data.url) {
+                    throw new Error(paymentResult.message || 'Failed to generate PayPal payment URL');
+                }
+
+                // Redirect to PayPal payment URL
+                window.location.href = paymentResult.data.url;
+            } catch (error) {
+                console.error('PayPal Error:', error);
+                alert(`Could not initiate PayPal Checkout: ${error.message}`);
+            }
+        }
+    }).render('#paypal-button-container');
+};
+document.head.appendChild(script);
 </script>
 
 <style>

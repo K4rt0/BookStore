@@ -72,6 +72,120 @@ if (!$book) {
 }
 ?>
 <link rel="stylesheet" href="/assets/css/template/book-details.css">
+<!-- Add custom CSS for the redesigned tags -->
+<style>
+    /* Book Image Container Styles */
+    .book-image-container {
+        position: relative;
+        margin-bottom: 20px;
+        overflow: hidden;
+    }
+    
+    /* Badge Styles */
+    .badge-corner {
+        position: absolute;
+        top: 0;
+        left: 0;
+        overflow: hidden;
+        height: 80px;
+        width: 80px;
+    }
+    
+    .badge-ribbon {
+        position: absolute;
+        top: 15px;
+        left: -30px;
+        padding: 5px 30px;
+        transform: rotate(-45deg);
+        font-weight: bold;
+        text-transform: uppercase;
+        font-size: 12px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        z-index: 2;
+    }
+    
+    .badge-new {
+        background-color: #2ECC71;
+        color: white;
+    }
+    
+    .badge-featured {
+        background-color: #3498DB;
+        color: white;
+    }
+    
+    .badge-bestseller {
+        background-color: #F1C40F;
+        color: #333;
+    }
+    
+    /* Price tag styles */
+    .price-container {
+        display: flex;
+        align-items: center;
+        margin: 15px 0;
+    }
+    
+    .discount-badge {
+        display: inline-block;
+        background-color: #E74C3C;
+        color: white;
+        padding: 4px 8px;
+        border-radius: 4px;
+        margin-left: 10px;
+        font-size: 14px;
+        font-weight: bold;
+    }
+    
+    .original-price {
+        text-decoration: line-through;
+        color: #95a5a6;
+        margin-right: 10px;
+        font-size: 16px;
+    }
+    
+    .current-price {
+        font-size: 24px;
+        font-weight: bold;
+        color: #2c3e50;
+    }
+    
+    /* Additional badge on image */
+    .tag-badge {
+        position: absolute;
+        right: 10px;
+        top: 10px;
+        padding: 5px 10px;
+        border-radius: 3px;
+        font-weight: bold;
+        font-size: 12px;
+        z-index: 2;
+    }
+    
+    /* Customized tags for cards in related books section */
+    .book-card {
+        position: relative;
+    }
+    
+    .book-card .tag-badge {
+        font-size: 10px;
+        padding: 3px 8px;
+        right: 5px;
+        top: 5px;
+    }
+    
+    .book-card .discount-tag {
+        position: absolute;
+        left: 0;
+        top: 10px;
+        background-color: #E74C3C;
+        color: white;
+        padding: 3px 8px;
+        font-size: 10px;
+        font-weight: bold;
+        z-index: 2;
+    }
+</style>
 
 <div class="book-details-container">
     <div class="container">
@@ -85,7 +199,7 @@ if (!$book) {
                     <ol class="breadcrumb">
                         <li class="breadcrumb-item"><a href="/">Home</a></li>
                         <?php if ($category): ?>
-                            <li class="breadcrumb-item"><a href="/category?id=<?= htmlspecialchars($category['id']) ?>"><?= htmlspecialchars($category['name'] ?? 'Books') ?></a></li>
+                            <li class="breadcrumb-item"><a href="/category?category_id=<?= htmlspecialchars($category['id']) ?>"><?= htmlspecialchars($category['name'] ?? 'Books') ?></a></li>
                         <?php else: ?>
                             <li class="breadcrumb-item"><a href="/books">Books</a></li>
                         <?php endif; ?>
@@ -100,21 +214,33 @@ if (!$book) {
                         <div class="book-image-container">
                             <img src="<?= htmlspecialchars($book['image_url'] ?? '/assets/img/gallery/best-books1.jpg') ?>" alt="<?= htmlspecialchars($book['title'] ?? 'Book cover') ?>" class="book-cover-image">
                             
-                            <!-- Badges overlay -->
-                            <div class="badges-container">
-                                <?php if ($book['is_featured']): ?>
-                                    <span class="badge badge-featured"><i class="fas fa-award"></i> Featured</span>
-                                <?php endif; ?>
-                                <?php if ($book['is_new']): ?>
-                                    <span class="badge badge-new"><i class="fas fa-bolt"></i> New</span>
-                                <?php endif; ?>
-                                <?php if ($book['is_best_seller']): ?>
-                                    <span class="badge badge-bestseller"><i class="fas fa-crown"></i> Best Seller</span>
-                                <?php endif; ?>
-                                <?php if ($book['is_discounted']): ?>
-                                    <span class="badge badge-discount"><i class="fas fa-tag"></i> Discounted</span>
-                                <?php endif; ?>
-                            </div>
+                            <!-- Redesigned corner ribbon badges -->
+                            <?php if ($book['is_new']): ?>
+                                <div class="badge-corner">
+                                    <div class="badge-ribbon badge-new">
+                                        <i class="fas fa-bolt"></i> New
+                                    </div>
+                                </div>
+                            <?php elseif ($book['is_featured']): ?>
+                                <div class="badge-corner">
+                                    <div class="badge-ribbon badge-featured">
+                                        <i class="fas fa-award"></i> Featured
+                                    </div>
+                                </div>
+                            <?php elseif ($book['is_best_seller']): ?>
+                                <div class="badge-corner">
+                                    <div class="badge-ribbon badge-bestseller">
+                                        <i class="fas fa-crown"></i> Best Seller
+                                    </div>
+                                </div>
+                            <?php endif; ?>
+                            
+                            <!-- Additional tag badge on the right side of the image if needed -->
+                            <?php if ($book['is_best_seller'] && $book['is_featured']): ?>
+                                <div class="tag-badge" style="background-color: #3498DB; color: white;">
+                                    <i class="fas fa-award"></i> Featured
+                                </div>
+                            <?php endif; ?>
                         </div>
                     </div>
                     <div class="col-lg-7">
@@ -141,11 +267,26 @@ if (!$book) {
                                 <span class="rating-count">(<?= htmlspecialchars($book['rating_count'] ?? '0') ?> Reviews)</span>
                             </div>
                             
+                            <!-- Redesigned price display with discount tag -->
                             <div class="price-container">
                                 <?php if ($book['is_discounted'] && isset($book['original_price'])): ?>
-                                    <span class="original-price">₫<?= htmlspecialchars(number_format(($book['original_price'] ?? 0), 2)) ?></span>
+                                    <span class="original-price">₫<?= htmlspecialchars(number_format(($book['original_price'] ?? 0), 0)) ?></span>
+                                    <span class="current-price">₫<?= htmlspecialchars(number_format(($book['price'] ?? 0), 0)) ?></span>
+                                    <?php
+                                        // Calculate discount percentage
+                                        $original = floatval($book['original_price'] ?? 0);
+                                        $current = floatval($book['price'] ?? 0);
+                                        $discount_percent = 0;
+                                        if ($original > 0) {
+                                            $discount_percent = round((($original - $current) / $original) * 100);
+                                        }
+                                    ?>
+                                    <span class="discount-badge">
+                                        <i class="fas fa-tag"></i> -<?= $discount_percent ?>%
+                                    </span>
+                                <?php else: ?>
+                                    <span class="current-price">₫<?= htmlspecialchars(number_format(($book['price'] ?? 0), 0)) ?></span>
                                 <?php endif; ?>
-                                <span class="current-price">₫<?= htmlspecialchars(number_format(($book['price'] ?? 0), 0)) ?></span>
                             </div>
                             
                             <div class="book-meta">
@@ -374,11 +515,17 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <a href="/book-details?id=${book.id}" class="book-link">
                                     <div class="book-image">
                                         <img src="${book.image_url || '/assets/img/gallery/best-books1.jpg'}" alt="${book.title}">
+                                        ${book.is_new ? '<div class="tag-badge" style="background-color: #2ECC71; color: white;"><i class="fas fa-bolt"></i> New</div>' : ''}
+                                        ${book.is_discounted ? '<div class="discount-tag"><i class="fas fa-tag"></i> Sale</div>' : ''}
                                     </div>
                                     <div class="book-info">
                                         <h4 class="book-card-title">${book.title}</h4>
                                         <p class="book-card-author">${book.author}</p>
-                                        <div class="book-card-price">₫${parseFloat(book.price).toLocaleString('vi-VN')}</div>
+                                        <div class="book-card-price">
+                                            ${book.is_discounted && book.original_price ? 
+                                                `<span style="text-decoration: line-through; color: #95a5a6; font-size: 12px; margin-right: 5px;">₫${parseFloat(book.original_price).toLocaleString('vi-VN')}</span>` : ''}
+                                            <span style="color: ${book.is_discounted ? '#E74C3C' : '#2c3e50'}; font-weight: bold;">₫${parseFloat(book.price).toLocaleString('vi-VN')}</span>
+                                        </div>
                                     </div>
                                 </a>
                             </div>

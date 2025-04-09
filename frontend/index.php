@@ -42,6 +42,7 @@ $routes = [
     'contact' => 'pages/contact.php',
     'error' => 'pages/error.php',
     'profile' => 'pages/profile.php',
+    'order-status' => 'pages/order-status.php',
 
     // ✅ Admin-only routes
     'admin' => 'pages/admin/dashboard.php',
@@ -54,7 +55,7 @@ $routes = [
     'admin/book-create' => 'pages/admin/book-create.php',
     'admin/book-edit' => 'pages/admin/book-edit.php',
     'admin/orders' => 'pages/admin/orders.php',
-    'admin/order-details' => 'pages/admin/order-details.php', // Đổi từ 'orders-details' thành 'order-details'
+    'admin/order-details' => 'pages/admin/order-details.php', 
 ];
 
 $admin_only_routes = [

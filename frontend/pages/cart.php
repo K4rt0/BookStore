@@ -341,7 +341,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const recalculateSubtotal = () => {
         let subtotal = 0;
         const rows = document.querySelectorAll('tr[data-cart-id]');
-        console.log(`Recalculating subtotal for ${rows.length} items`);
 
         rows.forEach(row => {
             const cartId = row.getAttribute('data-cart-id');
@@ -350,7 +349,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const quantity = parseInt(quantityInput.value) || 0;
 
             const itemTotal = price * quantity;
-            console.log(`Cart ID: ${cartId}, Quantity: ${quantity}, Price: ${price}, Item Total: ${itemTotal}`);
 
             subtotal += itemTotal;
         });
@@ -382,14 +380,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const currentQuantity = parseInt(input.value) || 0;
             const maxQuantity = parseInt(input.getAttribute('max')) || 10;
 
-            console.log(`Increment button clicked for cartId: ${cartId}, Current quantity: ${currentQuantity}`);
 
             if (currentQuantity <= maxQuantity) {
                 addToCartSingleUnit(cartId, row);
             } else {
                 alert(`Maximum quantity (${maxQuantity}) reached.`);
             }
-        }, 300); // 300ms debounce
+        }, 300); 
 
         button.addEventListener('click', debouncedIncrement);
     });
@@ -411,7 +408,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (currentQuantity >= 1) {
                 const newQuantity = currentQuantity; // Decrement the quantity
-                console.log(`Decrementing item with cartId: ${cartId}, Current quantity: ${currentQuantity}, New quantity: ${newQuantity}`);
                 updateQuantity(cartId, newQuantity, row);
             } else if (currentQuantity === 1) {
                 if (confirm('Remove this item from your cart?')) {

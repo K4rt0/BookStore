@@ -3,14 +3,10 @@
 session_start();
 require_once __DIR__ . '/../includes/env-loader.php';
 
-// Debug: Confirm this file is loaded
-error_log("Loaded home.php");
-
 $page_title = "Book Shop - Home";
 $layout = 'main';
 $api_base_url = $_ENV['API_BASE_URL'];
 
-// Function to fetch data from the API
 function fetchData($url) {
     $response = file_get_contents($url);
     if ($response === false) {
@@ -25,7 +21,6 @@ function fetchData($url) {
     return $data['data'];
 }
 
-// Function to generate star ratings
 function getStarRating($rating) {
     $fullStars = floor($rating);
     $halfStar = $rating % 1 >= 0.5 ? 1 : 0;
