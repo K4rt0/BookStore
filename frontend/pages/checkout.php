@@ -76,9 +76,16 @@ function saveOrder($api_base_url, $access_token, $order_data) {
     return makeApiRequest($url, $access_token, 'POST', $order_data);
 }
 
-// Function to get VNPay payment URL from backend API
-function getVNPayUrl($api_base_url, $access_token, $order_id, $amount) {
-    $url = $api_base_url . "/payment?action=create-vnpay-url";
+// Function to get payment URL from backend API
+function getPaymentUrl($api_base_url, $access_token, $payment_method, $order_id, $amount) {
+    $action = match ($payment_method) {
+        'vnpay' => 'create-vnpay-url',
+        'paypal' => 'create-paypal-url',
+        'momo' => 'create-momo-url',
+        default => throw new Exception("Unsupported payment method: $payment_method")
+    };
+    
+    $url = $api_base_url . "/payment?action=$action";
     $body = [
         "order_id" => $order_id,
         "amount" => $amount,
@@ -94,11 +101,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $amount = floatval($_POST['amount']);
     $order_info = [
         "user_id" => $user_id,
-        "full_name" => $_POST['first_name'] . " " . $_POST['last_name'],
+        "full_name" => $_POST['first_name'],
         "phone" => $_POST['phone'],
         "total_price" => $amount,
-        "shipping_address" => $_POST['address1'] . ", " . $_POST['city'],
-        "payment_method" => strtoupper($payment_method) // VNPAY or COD
+        "shipping_address" => $_POST['address1'],
+        "payment_method" => strtoupper($payment_method) // VNPAY, PAYPAL, MOMO, or COD
     ];
     
     // Retrieve cart items from session
@@ -117,16 +124,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($order_response['success'] && isset($order_response['data']['order_id'])) {
         $order_id = $order_response['data']['order_id'];
 
-        if ($payment_method === 'vnpay') {
-            // Call backend API to get VNPay payment URL
-            $vnpay_response = getVNPayUrl($api_base_url, $access_token, $order_id, $amount);
+        if (in_array($payment_method, ['vnpay', 'paypal', 'momo'])) {
+            // Call backend API to get payment URL
+            $payment_response = getPaymentUrl($api_base_url, $access_token, $payment_method, $order_id, $amount);
             
-            if ($vnpay_response['success'] && isset($vnpay_response['data']['url'])) {
-                $vnpay_url = $vnpay_response['data']['url'];
-                header("Location: $vnpay_url");
+            if ($payment_response['success'] && isset($payment_response['data']['url'])) {
+                $payment_url = $payment_response['data']['url'];
+                header("Location: $payment_url");
                 exit();
             } else {
-                $error_message = $vnpay_response['message'] ?? "Failed to generate VNPay payment URL";
+                $error_message = $payment_response['message'] ?? "Failed to generate payment URL for $payment_method";
             }
         } else if ($payment_method === 'cod') {
             // Redirect to order confirmation page for COD
@@ -219,11 +226,8 @@ $error_message = isset($error_message) ? $error_message : ($_GET['error'] ?? nul
                 <div class="col-lg-8">
                     <h3>Billing Information</h3>
                     <form class="row contact_form" action="" method="post" novalidate="novalidate">
-                        <div class="col-md-6 form-group p_star">
-                            <input type="text" class="form-control" id="first" name="first_name" value="<?php echo htmlspecialchars($user_data['first_name'] ?? ''); ?>" placeholder="**First Name" required />
-                        </div>
-                        <div class="col-md-6 form-group p_star">
-                            <input type="text" class="form-control" id="last" name="last_name" value="<?php echo htmlspecialchars($user_data['last_name'] ?? ''); ?>" placeholder="**Last Name" required />
+                        <div class="col-md-12 form-group p_star">
+                            <input type="text" class="form-control" id="first" name="first_name" value="<?php echo htmlspecialchars($user_data['full_name'] ?? ''); ?>" placeholder="**Full Name" required />
                         </div>
                         <div class="col-md-6 form-group p_star">
                             <input type="tel" class="form-control" id="number" name="phone" value="<?php echo htmlspecialchars($user_data['phone'] ?? ''); ?>" placeholder="**Phone Number" required />
@@ -232,10 +236,7 @@ $error_message = isset($error_message) ? $error_message : ($_GET['error'] ?? nul
                             <input type="email" class="form-control" id="email" name="email" value="<?php echo htmlspecialchars($user_data['email'] ?? ''); ?>" placeholder="**Email Address" required />
                         </div>
                         <div class="col-md-12 form-group p_star">
-                            <input type="text" class="form-control" id="add1" name="address1" value="<?php echo htmlspecialchars($user_data['address1'] ?? ''); ?>" placeholder="**Address (House number, street, ward/commune)" required />
-                        </div>
-                        <div class="col-md-12 form-group p_star">
-                            <input type="text" class="form-control" id="city" name="city" value="<?php echo htmlspecialchars($user_data['city'] ?? ''); ?>" placeholder="**City/Province" required />
+                            <input type="text" class="form-control" id="add1" name="address1" value="<?php echo htmlspecialchars($user_data['address'] ?? ''); ?>" placeholder="**Address (House number, street, ward/commune)" required />
                         </div>
                         <div class="col-md-12 form-group">
                             <textarea class="form-control" name="message" id="message" rows="1" placeholder="**Order Notes (optional)"><?php echo htmlspecialchars($user_data['notes'] ?? ''); ?></textarea>
@@ -265,25 +266,43 @@ $error_message = isset($error_message) ? $error_message : ($_GET['error'] ?? nul
                         <ul class="list list_2">
                             <li><a href="#">Subtotal <span><?php echo number_format($subtotal, 0, ',', '.'); ?> VND</span></a></li>
                             <li><a href="#">Shipping <span><?php echo number_format($shipping, 0, ',', '.'); ?> VND</span></a></li>
-                            <li><a href="#">Total <span><?php echo number_format($total, 0, ',', '.'); ?> VND</span></a></li>
+                            <li><a href="#">Total <span><strong><?php echo number_format($total, 0, ',', '.'); ?> VND</strong></span></a></li>
                         </ul>
+                        <h4 class="mt-4">Payment Method</h4>
+                        <!-- Online Payment -->
                         <div class="payment_item">
                             <div class="radion_btn">
-                                <input type="radio" id="f-option5" name="payment_method_radio" value="cod" onchange="updatePaymentMethod('cod')" />
-                                <label for="f-option5">Cash on Delivery (COD)</label>
+                                <input type="radio" id="f-option-online" name="payment_method_radio" value="online" onchange="updatePaymentMethod('online')" checked />
+                                <label for="f-option-online">Online Payment</label>
+                                <div class="check"></div>
+                            </div>
+                            <p>Pay securely online using one of the following methods:</p>
+                            <div class="online-payment-options" style="margin-left: 20px;">
+                                <div class="payment_option">
+                                    <input type="radio" id="f-option-vnpay" name="online_payment_method" value="vnpay" checked onchange="updatePaymentMethod('vnpay')" />
+                                    <label for="f-option-vnpay">VNPay</label>
+                                    <img style="width: 5rem; margin-left: 10px;" src="./assets/svg/vnpay.svg" alt="VNPay" />
+                                </div>
+                                <div class="payment_option">
+                                    <input type="radio" id="f-option-paypal" name="online_payment_method" value="paypal" onchange="updatePaymentMethod('paypal')" />
+                                    <label for="f-option-paypal">PayPal</label>
+                                    <img style="width: 5rem; margin-left: 10px;" src="./assets/svg/64px-PayPal.svg.png" alt="PayPal" />
+                                </div>
+                                <div class="payment_option">
+                                    <input type="radio" id="f-option-momo" name="online_payment_method" value="momo" onchange="updatePaymentMethod('momo')" />
+                                    <label for="f-option-momo">MoMo</label>
+                                    <img style="width: 5rem; margin-left: 10px;" src="./assets/svg/momo.svg" alt="MoMo" />
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Cash on Delivery -->
+                        <div class="payment_item">
+                            <div class="radion_btn">
+                                <input type="radio" id="f-option-cod" name="payment_method_radio" value="cod" onchange="updatePaymentMethod('cod')" />
+                                <label for="f-option-cod">Cash on Delivery (COD)</label>
                                 <div class="check"></div>
                             </div>
                             <p>Pay with cash upon delivery at the shipping address.</p>
-                        </div>
-                        <div class="payment_item active">
-                            <div class="radion_btn">
-                                <input type="radio" id="f-option6" name="payment_method_radio" value="vnpay" checked onchange="updatePaymentMethod('vnpay')" />
-                                <label for="f-option6">Pay with VNPay</label>
-                                <img style="width: 5rem;" src="/assets/svg/vnpay.svg" alt="VNPay" />
-                                <div class="check"></div>
-                            </div>
-
-                            <p>Pay online via VNPay, fast and secure.</p>
                         </div>
                     </div>
                 </div>
@@ -294,18 +313,55 @@ $error_message = isset($error_message) ? $error_message : ($_GET['error'] ?? nul
 
 <script>
 function updatePaymentMethod(method) {
-    document.getElementById('payment_method').value = method;
+    const paymentMethodInput = document.getElementById('payment_method');
     const checkoutBtn = document.getElementById('checkout_btn');
-    if (method === 'vnpay') {
-        checkoutBtn.textContent = 'Pay with VNPay';
+    
+    if (method === 'online') {
+        // Default to VNPay if "Online Payment" is selected
+        const onlineMethod = document.querySelector('input[name="online_payment_method"]:checked').value;
+        paymentMethodInput.value = onlineMethod;
+        checkoutBtn.textContent = `Pay with ${onlineMethod.charAt(0).toUpperCase() + onlineMethod.slice(1)}`;
+    } else if (method === 'vnpay' || method === 'paypal' || method === 'momo') {
+        paymentMethodInput.value = method;
+        checkoutBtn.textContent = `Pay with ${method.charAt(0).toUpperCase() + method.slice(1)}`;
     } else if (method === 'cod') {
+        paymentMethodInput.value = method;
         checkoutBtn.textContent = 'Place Order';
     }
 }
 
+// Update payment method when online payment sub-options change
+document.querySelectorAll('input[name="online_payment_method"]').forEach(input => {
+    input.addEventListener('change', () => {
+        if (document.getElementById('f-option-online').checked) {
+            updatePaymentMethod(input.value);
+        }
+    });
+});
+
 // Set default payment method
 updatePaymentMethod('vnpay');
 </script>
+
+<style>
+.payment_item {
+    margin-bottom: 20px;
+}
+
+.payment_option {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.payment_option input[type="radio"] {
+    margin-right: 10px;
+}
+
+.payment_option label {
+    margin-right: 10px;
+}
+</style>
 
 <?php
 $content = ob_get_clean();

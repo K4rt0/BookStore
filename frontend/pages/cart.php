@@ -116,7 +116,6 @@ if ($cart_response['success'] && !empty($cart_response['data'])) {
         </div>
     </div> 
 </div>
-
 <section class="cart_area section-padding">
     <div class="container">
         <div class="cart_inner">
@@ -137,8 +136,8 @@ if ($cart_response['success'] && !empty($cart_response['data'])) {
                                 <tr data-cart-id="<?php echo htmlspecialchars($item['id']); ?>" data-book-id="<?php echo htmlspecialchars($item['book_id']); ?>">
                                     <td>
                                         <div class="media">
-                                            <div class="d-flex">
-                                                <img src="<?php echo htmlspecialchars($item['image_url'] ?? '/assets/img/gallery/default.jpg'); ?>" alt="" />
+                                            <div class="d-flex image-container" style="width: 200px;height: 120px;">
+                                                <img class="cart-item-image h-100 w-100" style="object-fit: cover;" src="<?php echo htmlspecialchars($item['image_url'] ?? '/assets/img/gallery/default.jpg'); ?>" alt="<?php echo htmlspecialchars($item['title'] ?? 'Unnamed Product'); ?>" />
                                             </div>
                                             <div class="media-body">
                                                 <p>

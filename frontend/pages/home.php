@@ -11,7 +11,7 @@ $layout = 'main';
 $api_base_url = $_ENV['API_BASE_URL'];
 
 // Function to fetch data from the API
-function fetchBooks($url) {
+function fetchData($url) {
     $response = file_get_contents($url);
     if ($response === false) {
         error_log("Failed to fetch data from: $url");
@@ -22,7 +22,7 @@ function fetchBooks($url) {
         error_log("Invalid API response from: $url");
         return [];
     }
-    return $data['data']['books'];
+    return $data['data'];
 }
 
 // Function to generate star ratings
@@ -44,27 +44,25 @@ function getStarRating($rating) {
 }
 
 // Fetch books for each section
-$bestSellingBooks = fetchBooks("{$api_base_url}/book?action=get-all-books-pagination&page=1&limit=6&is_best_seller=1&sort=price_at_asc");
-$featuredBooks = fetchBooks("{$api_base_url}/book?action=get-all-books-pagination&page=1&limit=2&is_featured=1&sort=price_at_asc");
-$latestBooksAll = fetchBooks("{$api_base_url}/book?action=get-all-books-pagination&page=1&limit=6&is_new=1&sort=created_at_desc");
+$bestSellingBooks = fetchData("{$api_base_url}/book?action=get-all-books-pagination&page=1&limit=6&is_best_seller=1&sort=price_at_asc&is_deleted=0")['books'] ?? [];
+$featuredBooks = fetchData("{$api_base_url}/book?action=get-all-books-pagination&page=1&limit=2&is_featured=1&sort=price_at_asc&is_deleted=0")['books'] ?? [];
+$latestBooksAll = fetchData("{$api_base_url}/book?action=get-all-books-pagination&page=1&limit=6&is_new=1&sort=created_at_desc&is_deleted=0")['books'] ?? [];
 
-// Fetch books for each category tab
-$categoryIds = [
-    'horror' => '1', // Replace with actual category_id for Horror
-    'thriller' => '2', // Replace with actual category_id for Thriller
-    'scifi' => '3', // Replace with actual category_id for Science Fiction
-    'history' => '4' // Replace with actual category_id for History
-];
+// Fetch categories
+$categoriesData = fetchData("{$api_base_url}/category?action=get-all-categories");
+$categories = $categoriesData ?? [];
 
-$latestBooksHorror = fetchBooks("{$api_base_url}/book?action=get-all-books-pagination&page=1&limit=6&is_new=1&sort=created_at_desc&category_id={$categoryIds['horror']}");
-$latestBooksThriller = fetchBooks("{$api_base_url}/book?action=get-all-books-pagination&page=1&limit=6&is_new=1&sort=created_at_desc&category_id={$categoryIds['thriller']}");
-$latestBooksScifi = fetchBooks("{$api_base_url}/book?action=get-all-books-pagination&page=1&limit=6&is_new=1&sort=created_at_desc&category_id={$categoryIds['scifi']}");
-$latestBooksHistory = fetchBooks("{$api_base_url}/book?action=get-all-books-pagination&page=1&limit=6&is_new=1&sort=created_at_desc&category_id={$categoryIds['history']}");
+// Fetch books for each category dynamically
+$latestBooksByCategory = [];
+foreach ($categories as $category) {
+    $categoryId = $category['id'];
+    $latestBooksByCategory[$categoryId] = fetchData("{$api_base_url}/book?action=get-all-books-pagination&page=1&limit=6&is_new=1&sort=created_at_desc&is_deleted=0&category[]={$categoryId}")['books'] ?? [];
+}
 
 ob_start();
 ?>
 
-<!-- slider Area Start-->
+<!-- slider Area Start -->
 <div class="slider-area">
     <div class="container">
         <div class="row">
@@ -117,7 +115,7 @@ ob_start();
         </div>
     </div>
 </div>
-<!-- slider Area End-->
+<!-- slider Area End -->
 
 <!-- Best Selling start -->
 <div class="best-selling section-bg">
@@ -130,16 +128,17 @@ ob_start();
             </div>
         </div>
         <div class="row">
-            <div class="col-xl-12">
-                <div class="selling-active">
-                    <?php foreach ($bestSellingBooks as $book): ?>
-                        <!-- Single -->
+            <?php if (empty($bestSellingBooks)): ?>
+                <div class="col-12"><p>Không có sách bán chạy để hiển thị.</p></div>
+            <?php else: ?>
+                <?php foreach ($bestSellingBooks as $book): ?>
+                    <div class="col-xl-3 col-lg-3 col-md-4 col-sm-6">
                         <div class="properties pb-20">
-                            <div class="properties-card" style="width: 100%;">
+                            <div class="properties-card">
                                 <div class="properties-img">
                                     <a href="/book-details?id=<?= htmlspecialchars($book['id']) ?>">
                                         <div class="img-wrapper">
-                                            <img style="height: 12rem; object-fit: cover;" src="<?= htmlspecialchars($book['image_url']) ?>" alt="<?= htmlspecialchars($book['title']) ?>">
+                                            <img style="height: 12rem; object-fit: cover;" src="<?= htmlspecialchars($book['image_url'] ?: 'assets/img/placeholder.jpg') ?>" alt="<?= htmlspecialchars($book['title']) ?>">
                                         </div>
                                     </a>
                                 </div>
@@ -160,16 +159,15 @@ ob_start();
                                 </div>
                             </div>
                         </div>
-
-                    <?php endforeach; ?>
-                </div>
-            </div>
+                    </div>
+                <?php endforeach; ?>
+            <?php endif; ?>
         </div>
     </div>
 </div>
 <!-- Best Selling End -->
 
-<!-- services-area start-->
+<!-- services-area start -->
 <div class="services-area2 top-padding">
     <div class="container">
         <div class="row">
@@ -224,7 +222,7 @@ ob_start();
         </div>
     </div>
 </div>
-<!-- services-area End-->
+<!-- services-area End -->
 
 <!-- Latest-items Start -->
 <section class="our-client section-padding best-selling">
@@ -233,7 +231,7 @@ ob_start();
             <div class="col-xl-5 col-lg-5 col-md-12">
                 <!-- Section Tittle -->
                 <div class="section-tittle mb-40">
-                    <h2>Latest Published items</h2>
+                    <h2>Latest Published Items</h2>
                 </div>
             </div>
             <div class="col-xl-7 col-lg-7 col-md-12">
@@ -242,10 +240,11 @@ ob_start();
                     <nav>
                         <div class="nav nav-tabs" id="nav-tab" role="tablist">
                             <a class="nav-link active" id="nav-one-tab" data-bs-toggle="tab" href="#nav-one" role="tab" aria-controls="nav-one" aria-selected="true">All</a>
-                            <a class="nav-link" id="nav-two-tab" data-bs-toggle="tab" href="#nav-two" role="tab" aria-controls="nav-two" aria-selected="false">Horror</a>
-                            <a class="nav-link" id="nav-three-tab" data-bs-toggle="tab" href="#nav-three" role="tab" aria-controls="nav-three" aria-selected="false">Thriller</a>
-                            <a class="nav-link" id="nav-four-tab" data-bs-toggle="tab" href="#nav-four" role="tab" aria-controls="nav-four" aria-selected="false">Science Fiction</a>
-                            <a class="nav-link" id="nav-five-tab" data-bs-toggle="tab" href="#nav-five" role="tab" aria-controls="nav-five" aria-selected="false">History</a>
+                            <?php foreach ($categories as $index => $category): ?>
+                                <a class="nav-link" id="nav-tab-<?= $index + 2 ?>-tab" data-bs-toggle="tab" href="#nav-tab-<?= $index + 2 ?>" role="tab" aria-controls="nav-tab-<?= $index + 2 ?>" aria-selected="false">
+                                    <?= htmlspecialchars($category['name']) ?>
+                                </a>
+                            <?php endforeach; ?>
                         </div>
                     </nav>
                     <!--End Nav Button  -->
@@ -291,146 +290,43 @@ ob_start();
                     <?php endforeach; ?>
                 </div>
             </div>
-            <!-- Tab 2: Horror -->
-            <div class="tab-pane fade" id="nav-two" role="tabpanel" aria-labelledby="nav-two-tab">
-                <div class="row">
-                    <?php foreach ($latestBooksHorror as $book): ?>
-                        <div class="col-xl-2 col-lg-3 col-md-4 col-sm-6">
-                            <div class="properties pb-30">
-                                <div class="properties-card">
-                                    <div class="properties-img">
-                                        <a href="/book-details?id=<?= htmlspecialchars($book['id']) ?>">
-                                            <div class="img-wrapper">
-                                                <img src="<?= htmlspecialchars($book['image_url']) ?>" alt="<?= htmlspecialchars($book['title']) ?>">
-                                            </div>
-                                        </a>
-                                    </div>
-                                    <div class="properties-caption properties-caption2">
-                                        <h3><a href="/book-details?id=<?= htmlspecialchars($book['id']) ?>"><?= htmlspecialchars($book['title']) ?></a></h3>
-                                        <p><?= htmlspecialchars($book['author']) ?></p>
-                                        <div class="properties-footer d-flex justify-content-between align-items-center">
-                                            <div class="review">
-                                                <div class="rating">
-                                                    <?= getStarRating(floatval($book['rating'])) ?>
+            <!-- Dynamic Tabs for Categories -->
+            <?php foreach ($categories as $index => $category): ?>
+                <div class="tab-pane fade" id="nav-tab-<?= $index + 2 ?>" role="tabpanel" aria-labelledby="nav-tab-<?= $index + 2 ?>-tab">
+                    <div class="row">
+                        <?php foreach ($latestBooksByCategory[$category['id']] as $book): ?>
+                            <div class="col-xl-3 col-lg-3 col-md-4 col-sm-6">
+                                <div class="properties pb-30">
+                                    <div class="properties-card">
+                                        <div class="properties-img">
+                                            <a href="/book-details?id=<?= htmlspecialchars($book['id']) ?>">
+                                                <div class="img-wrapper">
+                                                    <img style="height: 14rem; object-fit: cover;" src="<?= htmlspecialchars($book['image_url']) ?>" alt="<?= htmlspecialchars($book['title']) ?>">
                                                 </div>
-                                                <p>(<span><?= htmlspecialchars($book['rating_count']) ?></span> Review)</p>
-                                            </div>
-                                            <div class="price">
-                                                <span>$<?= number_format(floatval($book['price']), 2, '.', '') ?></span>
+                                            </a>
+                                        </div>
+                                        <div class="properties-caption properties-caption2">
+                                            <h3><a href="/book-details?id=<?= htmlspecialchars($book['id']) ?>"><?= htmlspecialchars($book['title']) ?></a></h3>
+                                            <p><?= htmlspecialchars($book['author']) ?></p>
+                                            <div class="properties-footer d-flex justify-content-between align-items-center">
+                                                <div class="review">
+                                                    <div class="rating">
+                                                        <?= getStarRating(floatval($book['rating'])) ?>
+                                                    </div>
+                                                    <p>(<span><?= htmlspecialchars($book['rating_count']) ?></span> Review)</p>
+                                                </div>
+                                                <div class="price">
+                                                    <span>$<?= number_format(floatval($book['price']), 2, '.', '') ?></span>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                    <?php endforeach; ?>
+                        <?php endforeach; ?>
+                    </div>
                 </div>
-            </div>
-            <!-- Tab 3: Thriller -->
-            <div class="tab-pane fade" id="nav-three" role="tabpanel" aria-labelledby="nav-three-tab">
-                <div class="row">
-                    <?php foreach ($latestBooksThriller as $book): ?>
-                        <div class="col-xl-2 col-lg-3 col-md-4 col-sm-6">
-                            <div class="properties pb-30">
-                                <div class="properties-card">
-                                    <div class="properties-img">
-                                        <a href="/book-details?id=<?= htmlspecialchars($book['id']) ?>">
-                                            <div class="img-wrapper">
-                                                <img src="<?= htmlspecialchars($book['image_url']) ?>" alt="<?= htmlspecialchars($book['title']) ?>">
-                                            </div>
-                                        </a>
-                                    </div>
-                                    <div class="properties-caption properties-caption2">
-                                        <h3><a href="/book-details?id=<?= htmlspecialchars($book['id']) ?>"><?= htmlspecialchars($book['title']) ?></a></h3>
-                                        <p><?= htmlspecialchars($book['author']) ?></p>
-                                        <div class="properties-footer d-flex justify-content-between align-items-center">
-                                            <div class="review">
-                                                <div class="rating">
-                                                    <?= getStarRating(floatval($book['rating'])) ?>
-                                                </div>
-                                                <p>(<span><?= htmlspecialchars($book['rating_count']) ?></span> Review)</p>
-                                            </div>
-                                            <div class="price">
-                                                <span>$<?= number_format(floatval($book['price']), 2, '.', '') ?></span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    <?php endforeach; ?>
-                </div>
-            </div>
-            <!-- Tab 4: Science Fiction -->
-            <div class="tab-pane fade" id="nav-four" role="tabpanel" aria-labelledby="nav-four-tab">
-                <div class="row">
-                    <?php foreach ($latestBooksScifi as $book): ?>
-                        <div class="col-xl-2 col-lg-3 col-md-4 col-sm-6">
-                            <div class="properties pb-30">
-                                <div class="properties-card">
-                                    <div class="properties-img">
-                                        <a href="/book-details?id=<?= htmlspecialchars($book['id']) ?>">
-                                            <div class="img-wrapper">
-                                                <img src="<?= htmlspecialchars($book['image_url']) ?>" alt="<?= htmlspecialchars($book['title']) ?>">
-                                            </div>
-                                        </a>
-                                    </div>
-                                    <div class="properties-caption properties-caption2">
-                                        <h3><a href="/book-details?id=<?= htmlspecialchars($book['id']) ?>"><?= htmlspecialchars($book['title']) ?></a></h3>
-                                        <p><?= htmlspecialchars($book['author']) ?></p>
-                                        <div class="properties-footer d-flex justify-content-between align-items-center">
-                                            <div class="review">
-                                                <div class="rating">
-                                                    <?= getStarRating(floatval($book['rating'])) ?>
-                                                </div>
-                                                <p>(<span><?= htmlspecialchars($book['rating_count']) ?></span> Review)</p>
-                                            </div>
-                                            <div class="price">
-                                                <span>$<?= number_format(floatval($book['price']), 2, '.', '') ?></span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    <?php endforeach; ?>
-                </div>
-            </div>
-            <!-- Tab 5: History -->
-            <div class="tab-pane fade" id="nav-five" role="tabpanel" aria-labelledby="nav-five-tab">
-                <div class="row">
-                    <?php foreach ($latestBooksHistory as $book): ?>
-                        <div class="col-xl-2 col-lg-3 col-md-4 col-sm-6">
-                            <div class="properties pb-30">
-                                <div class="properties-card">
-                                    <div class="properties-img">
-                                        <a href="/book-details?id=<?= htmlspecialchars($book['id']) ?>">
-                                            <div class="img-wrapper">
-                                                <img src="<?= htmlspecialchars($book['image_url']) ?>" alt="<?= htmlspecialchars($book['title']) ?>">
-                                            </div>
-                                        </a>
-                                    </div>
-                                    <div class="properties-caption properties-caption2">
-                                        <h3><a href="/book-details?id=<?= htmlspecialchars($book['id']) ?>"><?= htmlspecialchars($book['title']) ?></a></h3>
-                                        <p><?= htmlspecialchars($book['author']) ?></p>
-                                        <div class="properties-footer d-flex justify-content-between align-items-center">
-                                            <div class="review">
-                                                <div class="rating">
-                                                    <?= getStarRating(floatval($book['rating'])) ?>
-                                                </div>
-                                                <p>(<span><?= htmlspecialchars($book['rating_count']) ?></span> Review)</p>
-                                            </div>
-                                            <div class="price">
-                                                <span>$<?= number_format(floatval($book['price']), 2, '.', '') ?></span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    <?php endforeach; ?>
-                </div>
-            </div>
+            <?php endforeach; ?>
         </div>
         <div class="row">
             <div class="col-xl-12">
