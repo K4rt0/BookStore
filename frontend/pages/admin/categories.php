@@ -29,7 +29,7 @@ $categories = json_decode($response, true);
             <div class="card">
                 <div class="card-header">
                     <h4>Category List
-                        <a href="/admin/category-create" class="btn btn-primary float-end">Add New</a>
+                        <a href="/admin/category-create" class="btn btn-primary float-end fs-3 btn-sm">Add New</a>
                     </h4>
                 </div>
                 <div class="card-body">

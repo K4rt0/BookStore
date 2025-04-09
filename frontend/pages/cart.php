@@ -141,7 +141,11 @@ if ($cart_response['success'] && !empty($cart_response['data'])) {
                                                 <img src="<?php echo htmlspecialchars($item['image_url'] ?? '/assets/img/gallery/default.jpg'); ?>" alt="" />
                                             </div>
                                             <div class="media-body">
-                                                <p><?php echo htmlspecialchars($item['title'] ?? 'Unnamed Product'); ?></p>
+                                                <p>
+                                                    <a class="text-dark" href="/book-details?id=<?php echo htmlspecialchars($item['book_id']); ?>">
+                                                        <?php echo htmlspecialchars($item['title'] ?? 'Unnamed Product'); ?>
+                                                    </a>
+                                                </p>
                                             </div>
                                         </div>
                                     </td>
@@ -167,8 +171,8 @@ if ($cart_response['success'] && !empty($cart_response['data'])) {
                                             class="total">₫<?php echo number_format($item['total'], 2); ?></h5>
                                     </td>
                                     <td>
-                                        <button class="delete-item btn btn-danger btn-sm">
-                                            <i class="ti-trash"></i> Delete
+                                        <button class="delete-item btn p-2 m-0">
+                                            <i class="bx bx-x-circle"></i>
                                         </button>
                                     </td>
                                 </tr>
@@ -199,7 +203,7 @@ if ($cart_response['success'] && !empty($cart_response['data'])) {
                     </tbody>
                 </table>
                 <?php if (!empty($cart_with_book_details)): ?>
-                    <div class="checkout_btn_inner float-right">
+                    <div class="checkout_btn_inner float-right d-flex justify-content-between">
                         <a class="btn" href="/category">Continue Shopping</a>
                         <a class="btn checkout_btn" href="/checkout">Proceed to Checkout</a>
                     </div>
@@ -287,7 +291,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
-    
     const deleteItem = (cartId, row) => {
         if (pendingRequests[cartId]) return;
         pendingRequests[cartId] = true;
@@ -327,9 +330,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const addToCartSingleUnit = (cartId, row) => {
         const input = row.querySelector(`#quantity-${cartId}`);
         const currentQuantity = parseInt(input.value) || 0;
-        const newQuantity = currentQuantity;
-
-        console.log(`Adding to cart, cartId: ${cartId}, Current quantity: ${currentQuantity}, New quantity: ${newQuantity}`);
+        const newQuantity = currentQuantity; // Increment the quantity
 
         updateCartItem(cartId, newQuantity, row);
     };
@@ -349,10 +350,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const quantityInput = row.querySelector(`#quantity-${cartId}`);
             const quantity = parseInt(quantityInput.value) || 0;
 
-            console.log(`Cart ID: ${cartId}, Quantity: ${quantity}, Price: ${price}`);
+            const itemTotal = price * quantity;
+            console.log(`Cart ID: ${cartId}, Quantity: ${quantity}, Price: ${price}, Item Total: ${itemTotal}`);
 
-            subtotal += price * quantity;
+            subtotal += itemTotal;
         });
+
 
         const subtotalElement = document.getElementById('subtotal');
         if (subtotalElement) {
@@ -382,7 +385,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             console.log(`Increment button clicked for cartId: ${cartId}, Current quantity: ${currentQuantity}`);
 
-            if (currentQuantity < maxQuantity) {
+            if (currentQuantity <= maxQuantity) {
                 addToCartSingleUnit(cartId, row);
             } else {
                 alert(`Maximum quantity (${maxQuantity}) reached.`);
@@ -408,9 +411,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const currentQuantity = parseInt(input.value) || 0;
 
             if (currentQuantity >= 1) {
-                const newQuantity = currentQuantity;
+                const newQuantity = currentQuantity; // Decrement the quantity
+                console.log(`Decrementing item with cartId: ${cartId}, Current quantity: ${currentQuantity}, New quantity: ${newQuantity}`);
                 updateQuantity(cartId, newQuantity, row);
-            } else if (currentQuantity === 0) {
+            } else if (currentQuantity === 1) {
                 if (confirm('Remove this item from your cart?')) {
                     deleteItem(cartId, row);
                 }

@@ -1,206 +1,313 @@
 <?php
-$page_title = "Book Shop - About";
-ob_start(); // Bắt đầu bộ đệm để lưu nội dung trang
+$page_title = "Book Shop - Checkout";
+ob_start();
+
+// Start session
+session_start();
+
+// API base URL and session variables
+$api_base_url = $_ENV['API_BASE_URL'];
+$access_token = $_SESSION['access_token'] ?? null;
+$user_id = $_SESSION['user_id'] ?? null;
+
+// Redirect to login if not authenticated
+if (empty($access_token) || empty($user_id)) {
+    header("Location: /login");
+    exit();
+}
+
+// Function to make API requests
+function makeApiRequest($url, $access_token, $method = 'GET', $body = null) {
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        "Authorization: Bearer " . ($access_token ?? ""),
+        "Content-Type: application/json"
+    ]);
+    
+    if ($method === 'POST') {
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($body));
+    } elseif ($method === 'PATCH') {
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'PATCH');
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($body));
+    } elseif ($method === 'DELETE') {
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'DELETE');
+    }
+    
+    $response = curl_exec($ch);
+    $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $error = curl_error($ch);
+    curl_close($ch);
+    
+    if ($response === false) {
+        return ["success" => false, "message" => "Request failed: " . $error, "data" => null, "http_code" => $http_code];
+    }
+    
+    $decoded_response = json_decode($response, true);
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        return ["success" => false, "message" => "Invalid JSON response", "data" => null, "http_code" => $http_code];
+    }
+    
+    return $http_code === 200 && isset($decoded_response['success']) && $decoded_response['success']
+        ? $decoded_response
+        : ["success" => false, "message" => $decoded_response['message'] ?? "Unable to fetch data (HTTP $http_code)", "data" => null, "http_code" => $http_code];
+}
+
+// Fetch cart data
+function fetchCartData($api_base_url, $access_token) {
+    return makeApiRequest($api_base_url . "/cart?action=get-cart", $access_token);
+}
+
+// Fetch book details by book_id
+function fetchBookDetails($api_base_url, $access_token, $book_id) {
+    return makeApiRequest($api_base_url . "/book?action=get-book&id=" . urlencode($book_id), $access_token);
+}
+
+// Fetch user data
+function fetchUserData($api_base_url, $access_token, $user_id) {
+    return makeApiRequest($api_base_url . "/user?action=get-user&id=" . urlencode($user_id), $access_token);
+}
+
+// Function to save order to API
+function saveOrder($api_base_url, $access_token, $order_data) {
+    $url = $api_base_url . "/order?action=create-order";
+    return makeApiRequest($url, $access_token, 'POST', $order_data);
+}
+
+// Function to get VNPay payment URL from backend API
+function getVNPayUrl($api_base_url, $access_token, $order_id, $amount) {
+    $url = $api_base_url . "/payment?action=create-vnpay-url";
+    $body = [
+        "order_id" => $order_id,
+        "amount" => $amount,
+        "order_info" => "Payment for order #$order_id"
+    ];
+    return makeApiRequest($url, $access_token, 'POST', $body);
+}
+
+// Process checkout if form is submitted
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Retrieve form data
+    $payment_method = $_POST['payment_method'];
+    $amount = floatval($_POST['amount']);
+    $order_info = [
+        "user_id" => $user_id,
+        "full_name" => $_POST['first_name'] . " " . $_POST['last_name'],
+        "phone" => $_POST['phone'],
+        "total_price" => $amount,
+        "shipping_address" => $_POST['address1'] . ", " . $_POST['city'],
+        "payment_method" => strtoupper($payment_method) // VNPAY or COD
+    ];
+    
+    // Retrieve cart items from session
+    $carts = $_SESSION['cart_items'] ?? [];
+    $cart_ids = array_column($carts, 'id');
+
+    // Create order data
+    $order_data = [
+        "order_info" => $order_info,
+        "carts" => $cart_ids
+    ];
+
+    // Save order via API
+    $order_response = saveOrder($api_base_url, $access_token, $order_data);
+    
+    if ($order_response['success'] && isset($order_response['data']['order_id'])) {
+        $order_id = $order_response['data']['order_id'];
+
+        if ($payment_method === 'vnpay') {
+            // Call backend API to get VNPay payment URL
+            $vnpay_response = getVNPayUrl($api_base_url, $access_token, $order_id, $amount);
+            
+            if ($vnpay_response['success'] && isset($vnpay_response['data']['url'])) {
+                $vnpay_url = $vnpay_response['data']['url'];
+                header("Location: $vnpay_url");
+                exit();
+            } else {
+                $error_message = $vnpay_response['message'] ?? "Failed to generate VNPay payment URL";
+            }
+        } else if ($payment_method === 'cod') {
+            // Redirect to order confirmation page for COD
+            header("Location: /order_confirmation?order_id=$order_id");
+            exit();
+        }
+    } else {
+        $error_message = $order_response['message'] ?? "Failed to create order";
+    }
+}
+
+// Fetch cart and book details
+$cart_response = fetchCartData($api_base_url, $access_token);
+$cart_with_book_details = [];
+$subtotal = 0;
+$shipping = 30000; // Flat rate shipping in VND (30,000 VND)
+$errors = [];
+
+if ($cart_response['success'] && !empty($cart_response['data'])) {
+    foreach ($cart_response['data'] as $item) {
+        $book_id = $item['book_id'];
+        $cart_item_id = $item['id'];
+        $book_response = fetchBookDetails($api_base_url, $access_token, $book_id);
+        
+        if ($book_response['success'] && $book_response['data']) {
+            $book = $book_response['data'];
+            $price = floatval($book['price']);
+            $quantity = $item['quantity'];
+            $total = $price * $quantity;
+            $subtotal += $total;
+            
+            $cart_with_book_details[] = [
+                'id' => $cart_item_id,
+                'book_id' => $book_id,
+                'title' => $book['title'],
+                'price' => $price,
+                'quantity' => $quantity,
+                'total' => $total
+            ];
+        } else {
+            $errors[] = "Failed to fetch book details for ID $book_id: " . ($book_response['message'] ?? "Unknown error");
+        }
+    }
+    // Store cart items in session for use in processing
+    $_SESSION['cart_items'] = $cart_with_book_details;
+} else {
+    $errors[] = "Failed to fetch cart data: " . ($cart_response['message'] ?? "Unknown error");
+}
+
+$total = $subtotal + $shipping;
+
+// Fetch user data
+$user_response = fetchUserData($api_base_url, $access_token, $user_id);
+$user_data = $user_response['success'] && $user_response['data'] ? $user_response['data'] : null;
+
+// Check for error messages from processing
+$error_message = isset($error_message) ? $error_message : ($_GET['error'] ?? null);
+
 ?>
+
 <div class="container">
-        <div class="row">
-            <div class="col-xl-12">
-                <div class="slider-area">
-                    <div class="slider-height2 slider-bg5 d-flex align-items-center justify-content-center">
-                        <div class="hero-caption hero-caption2">
-                            <h2>Check Out</h2>
-                        </div>
+    <div class="row">
+        <div class="col-xl-12">
+            <div class="slider-area">
+                <div class="slider-height2 slider-bg5 d-flex align-items-center justify-content-center">
+                    <div class="hero-caption hero-caption2">
+                        <h2>Checkout</h2>
                     </div>
                 </div>
             </div>
-        </div> 
-    </div>
-    <!--  Hero area End -->
+        </div>
+    </div> 
+</div>
 
-    <!--? Checkout Area Start-->
-    <section class="checkout_area section-padding">
-        <div class="container">
-            <div class="returning_customer">
-                <div class="check_title">
-                    <h2>
-                        Returning Customer?
+<section class="checkout_area section-padding">
+    <div class="container">
+        <?php if (!empty($errors) || $error_message): ?>
+            <div class="alert alert-danger">
+                <?php foreach ($errors as $error): ?>
+                    <p><?php echo $error; ?></p>
+                <?php endforeach; ?>
+                <?php if ($error_message): ?>
+                    <p><?php echo htmlspecialchars($error_message); ?></p>
+                <?php endif; ?>
+            </div>
+        <?php endif; ?>
 
-                        <a href="login.html">Click here to login</a>
-                    </h2>
-                </div>
-                <p>
-                    If you have shopped with us before, please enter your details in the
-                    boxes below. If you are a new customer, please proceed to the
-                    Billing & Shipping section.
-                </p>
-                <form class="row contact_form" action="#" method="post" novalidate="novalidate">
-                    <div class="col-md-6 form-group p_star">
-                        <input type="text" class="form-control" id="name" name="name" value=" " />
-                        <span class="placeholder" data-placeholder="Username or Email"></span>
-                    </div>
-                    <div class="col-md-6 form-group p_star">
-                        <input type="password" class="form-control" id="password" name="password" value="" />
-                        <span class="placeholder" data-placeholder="Password"></span>
-                    </div>
-                    <div class="col-md-12 form-group d-flex flex-wrap">
-                        <a href="login.html" value="submit" class="btn" > log in</a>
-                        <div class="checkout-cap ml-5">
-                            <input type="checkbox" id="fruit01" name="keep-log">
-                            <label for="fruit01">Create an account?</label>
+        <div class="billing_details">
+            <div class="row">
+                <div class="col-lg-8">
+                    <h3>Billing Information</h3>
+                    <form class="row contact_form" action="" method="post" novalidate="novalidate">
+                        <div class="col-md-6 form-group p_star">
+                            <input type="text" class="form-control" id="first" name="first_name" value="<?php echo htmlspecialchars($user_data['first_name'] ?? ''); ?>" placeholder="**First Name" required />
                         </div>
-                    </div>
-                </form>
-            </div>
-            <div class="cupon_area">
-                <div class="check_title">
-                    <h2> Have a coupon?
-                        <a href="#">Click here to enter your code</a>
-                    </h2>
+                        <div class="col-md-6 form-group p_star">
+                            <input type="text" class="form-control" id="last" name="last_name" value="<?php echo htmlspecialchars($user_data['last_name'] ?? ''); ?>" placeholder="**Last Name" required />
+                        </div>
+                        <div class="col-md-6 form-group p_star">
+                            <input type="tel" class="form-control" id="number" name="phone" value="<?php echo htmlspecialchars($user_data['phone'] ?? ''); ?>" placeholder="**Phone Number" required />
+                        </div>
+                        <div class="col-md-6 form-group p_star">
+                            <input type="email" class="form-control" id="email" name="email" value="<?php echo htmlspecialchars($user_data['email'] ?? ''); ?>" placeholder="**Email Address" required />
+                        </div>
+                        <div class="col-md-12 form-group p_star">
+                            <input type="text" class="form-control" id="add1" name="address1" value="<?php echo htmlspecialchars($user_data['address1'] ?? ''); ?>" placeholder="**Address (House number, street, ward/commune)" required />
+                        </div>
+                        <div class="col-md-12 form-group p_star">
+                            <input type="text" class="form-control" id="city" name="city" value="<?php echo htmlspecialchars($user_data['city'] ?? ''); ?>" placeholder="**City/Province" required />
+                        </div>
+                        <div class="col-md-12 form-group">
+                            <textarea class="form-control" name="message" id="message" rows="1" placeholder="**Order Notes (optional)"><?php echo htmlspecialchars($user_data['notes'] ?? ''); ?></textarea>
+                        </div>
+                        <!-- Hidden fields for order -->
+                        <input type="hidden" name="amount" value="<?php echo $total; ?>">
+                        <input type="hidden" name="order_info" value="Payment for Book Shop order">
+                        <input type="hidden" name="payment_method" id="payment_method" value="">
+                        <button type="submit" class="btn" id="checkout_btn">Place Order</button>
+                    </form>
                 </div>
-                <input type="text" placeholder="Enter coupon code" />
-                <a class="btn" href="#">Apply Coupon</a>
-            </div>
-            <div class="billing_details">
-                <div class="row">
-                    <div class="col-lg-8">
-                        <h3>Billing Details</h3>
-                        <form class="row contact_form" action="#" method="post" novalidate="novalidate">
-                            <div class="col-md-6 form-group p_star">
-                                <input type="text" class="form-control" id="first" name="name" />
-                                <span class="placeholder" data-placeholder="First name"></span>
-                            </div>
-                            <div class="col-md-6 form-group p_star">
-                                <input type="text" class="form-control" id="last" name="name" />
-                                <span class="placeholder" data-placeholder="Last name"></span>
-                            </div>
-                            <div class="col-md-12 form-group">
-                                <input type="text" class="form-control" id="company" name="company" placeholder="Company name" />
-                            </div>
-                            <div class="col-md-6 form-group p_star">
-                                <input type="text" class="form-control" id="number" name="number" />
-                                <span class="placeholder" data-placeholder="Phone number"></span>
-                            </div>
-                            <div class="col-md-6 form-group p_star">
-                                <input type="text" class="form-control" id="email" name="compemailany" />
-                                <span class="placeholder" data-placeholder="Email Address"></span>
-                            </div>
-                            <div class="col-md-12 form-group p_star">
-                                <select class="country_select">
-                                    <option value="1">Country</option>
-                                    <option value="2">Country</option>
-                                    <option value="4">Country</option>
-                                </select>
-                            </div>
-                            <div class="col-md-12 form-group p_star">
-                                <input type="text" class="form-control" id="add1" name="add1" />
-                                <span class="placeholder" data-placeholder="Address line 01"></span>
-                            </div>
-                            <div class="col-md-12 form-group p_star">
-                                <input type="text" class="form-control" id="add2" name="add2" />
-                                <span class="placeholder" data-placeholder="Address line 02"></span>
-                            </div>
-                            <div class="col-md-12 form-group p_star">
-                                <input type="text" class="form-control" id="city" name="city" />
-                                <span class="placeholder" data-placeholder="Town/City"></span>
-                            </div>
-                            <div class="col-md-12 form-group p_star">
-                                <select class="country_select">
-                                    <option value="1">District</option>
-                                    <option value="2">District</option>
-                                    <option value="4">District</option>
-                                </select>
-                            </div>
-                            <div class="col-md-12 form-group">
-                                <input type="text" class="form-control" id="zip" name="zip" placeholder="Postcode/ZIP" />
-                            </div>
-                            <div class="col-md-12 form-group">
-                                <div class="checkout-cap">
-                                    <input type="checkbox" id="fruit1" name="keep-log">
-                                    <label for="fruit1">Create an account?</label>
-                                </div>
-                            </div>
-                            <div class="col-md-12 form-group">
-                                <div class="creat_account">
-                                    <h3>Shipping Details</h3>
-                                    <div class="checkout-cap">
-                                        <input type="checkbox" id="f-option3" name="selector" />
-                                        <label for="f-option3">Ship to a different address?</label>
-                                    </div>
-                                </div>
-                                <textarea class="form-control" name="message" id="message" rows="1" placeholder="Order Notes"></textarea>
-                            </div>
-                        </form>
-                    </div>
-                    <div class="col-lg-4">
-                        <div class="order_box">
-                            <h2>Your Order</h2>
-                            <ul class="list">
+                <div class="col-lg-4">
+                    <div class="order_box">
+                        <h2>Your Order</h2>
+                        <ul class="list">
+                            <li><a href="#">Product<span>Total</span></a></li>
+                            <?php foreach ($cart_with_book_details as $item): ?>
                                 <li>
-                                    <a href="#">Product<span>Total</span>
+                                    <a href="#">
+                                        <?php echo htmlspecialchars($item['title']); ?>
+                                        <span class="middle">x <?php echo $item['quantity']; ?></span>
+                                        <span class="last"><?php echo number_format($item['total'], 0, ',', '.'); ?> VND</span>
                                     </a>
                                 </li>
-                                <li>
-                                    <a href="#">Fresh Blackberry
-                                        <span class="middle">x 02</span>
-                                        <span class="last">$720.00</span>
-                                    </a>
-                                </li>
-                                <li>
-                                    <a href="#">Fresh Tomatoes
-                                        <span class="middle">x 02</span>
-                                        <span class="last">$720.00</span>
-                                    </a>
-                                </li>
-                                <li>
-                                    <a href="#">Fresh Brocoli
-                                        <span class="middle">x 02</span>
-                                        <span class="last">$720.00</span>
-                                    </a>
-                                </li>
-                            </ul>
-                            <ul class="list list_2">
-                                <li>
-                                    <a href="#">Subtotal <span>$2160.00</span></a>
-                                </li>
-                                <li>
-                                    <a href="#">Shipping
-                                        <span>Flat rate: $50.00</span>
-                                    </a>
-                                </li>
-                                <li>
-                                    <a href="#">Total<span>$2210.00</span>
-                                    </a>
-                                </li>
-                            </ul>
-                            <div class="payment_item">
-                                <div class="radion_btn">
-                                    <input type="radio" id="f-option5" name="selector" />
-                                    <label for="f-option5">Check payments</label>
-                                    <div class="check"></div>
-                                </div>
-                                <p> Please send a check to Store Name, Store Street, Store Town, Store State / County, Store Postcode. </p>
+                            <?php endforeach; ?>
+                        </ul>
+                        <ul class="list list_2">
+                            <li><a href="#">Subtotal <span><?php echo number_format($subtotal, 0, ',', '.'); ?> VND</span></a></li>
+                            <li><a href="#">Shipping <span><?php echo number_format($shipping, 0, ',', '.'); ?> VND</span></a></li>
+                            <li><a href="#">Total <span><?php echo number_format($total, 0, ',', '.'); ?> VND</span></a></li>
+                        </ul>
+                        <div class="payment_item">
+                            <div class="radion_btn">
+                                <input type="radio" id="f-option5" name="payment_method_radio" value="cod" onchange="updatePaymentMethod('cod')" />
+                                <label for="f-option5">Cash on Delivery (COD)</label>
+                                <div class="check"></div>
                             </div>
-                            <div class="payment_item active">
-                                <div class="radion_btn">
-                                    <input type="radio" id="f-option6" name="selector" />
-                                    <label for="f-option6">Paypal </label>
-                                    <img src="/assets/img/gallery/card.html" alt="" />
-                                    <div class="check"></div>
-                                </div>
-                                <p> Please send a check to Store Name, Store Street, Store Town, Store State / County, Store Postcode. </p>
+                            <p>Pay with cash upon delivery at the shipping address.</p>
+                        </div>
+                        <div class="payment_item active">
+                            <div class="radion_btn">
+                                <input type="radio" id="f-option6" name="payment_method_radio" value="vnpay" checked onchange="updatePaymentMethod('vnpay')" />
+                                <label for="f-option6">Pay with VNPay</label>
+                                <img style="width: 5rem;" src="/assets/svg/vnpay.svg" alt="VNPay" />
+                                <div class="check"></div>
                             </div>
-                            <div class="creat_account checkout-cap">
-                                <input type="checkbox" id="f-option8" name="selector" />
-                                <label for="f-option8">I’ve read and accept the  <a href="#">terms & conditions*</a> </label>
-                            </div>
-                            <a class="btn w-100" href="#">Proceed to Paypal</a>
+
+                            <p>Pay online via VNPay, fast and secure.</p>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-    </section>
+    </div>
+</section>
+
+<script>
+function updatePaymentMethod(method) {
+    document.getElementById('payment_method').value = method;
+    const checkoutBtn = document.getElementById('checkout_btn');
+    if (method === 'vnpay') {
+        checkoutBtn.textContent = 'Pay with VNPay';
+    } else if (method === 'cod') {
+        checkoutBtn.textContent = 'Place Order';
+    }
+}
+
+// Set default payment method
+updatePaymentMethod('vnpay');
+</script>
+
 <?php
-$content = ob_get_clean(); // Lấy nội dung từ bộ đệm và gán vào biến $content
-include __DIR__ . '/../layouts/main-layout.php'; // Bao gồm layout chính
+$content = ob_get_clean();
+include __DIR__ . '/../layouts/main-layout.php';
 ?>

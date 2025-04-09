@@ -58,7 +58,7 @@ $error_message = !$response || !$response['success'] ? ($response['message'] ?? 
 ?>
 
 <div class="container mt-4">
-    <h2>User Management</h2>
+    <h2 class="py-2">User Management</h2>
 
     <?php if ($error_message): ?>
         <div class="alert alert-danger"><?= htmlspecialchars($error_message) ?></div>

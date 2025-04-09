@@ -53,25 +53,36 @@ $routes = [
     'admin/category-edit' => 'pages/admin/category-edit.php',
     'admin/book-create' => 'pages/admin/book-create.php',
     'admin/book-edit' => 'pages/admin/book-edit.php',
+    'admin/orders' => 'pages/admin/orders.php',
+    'admin/order-details' => 'pages/admin/order-details.php', // Đổi từ 'orders-details' thành 'order-details'
 ];
 
-
-$admin_only_routes = ['admin', 'admin/dashboard', 'admin/users', 'admin/books','admin/categories'];
+$admin_only_routes = [
+    'admin',
+    'admin/dashboard',
+    'admin/users',
+    'admin/books',
+    'admin/categories',
+    'admin/category-create',
+    'admin/category-edit',
+    'admin/book-create',
+    'admin/book-edit',
+    'admin/orders',
+    'admin/order-details' // Thêm route này vào danh sách admin-only
+];
 
 $protected_routes = ['logout', 'profile'];
 
-$url = filter_var($url, FILTER_SANITIZE_URL);
-$url_parts = explode('/', $url);
 $route = implode('/', array_slice($url_parts, 0, 2));
 
+// Xử lý dynamic routes (các route có tham số như id)
 if (isset($url_parts[2])) {
     $_GET['id'] = $url_parts[2];
 }
 
 $controller_file = $routes[$route] ?? null;
 
-
-// Check if the route is protected
+// Check if the route is admin-only
 if (in_array($route, $admin_only_routes)) {
     if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || empty($_SESSION['is_admin'])) {
         error_log("Access denied: Admin route without admin rights");
@@ -87,6 +98,15 @@ if ($route === 'book-details' && isset($url_parts[1])) {
     if ($book_id !== false) {
         $_GET['id'] = $book_id;
         $controller_file = 'pages/book-details.php';
+    }
+}
+
+// Handle dynamic routes for admin/order-details (e.g., /admin/order-details/123e4567-e89b-12d3-a456-426614174000)
+if ($route === 'admin/order-details' && isset($url_parts[2])) {
+    $order_id = filter_var($url_parts[2], FILTER_SANITIZE_STRING);
+    if (!empty($order_id)) {
+        $_GET['id'] = $order_id;
+        $controller_file = 'pages/admin/order-details.php';
     }
 }
 

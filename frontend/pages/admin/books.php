@@ -115,7 +115,7 @@ function getCurrentUrlPath() {
 // Sort options
 $sort_options = [
     'price_at_asc' => 'Price ascending',
-    'price_at_desc' => 'price descending',
+    'price_at_desc' => 'Price descending',
     'title_at_asc' => 'Title A-Z',
     'title_at_desc' => 'Title Z-A',
     'created_at_desc' => 'Newest',
@@ -213,6 +213,7 @@ $sort_options = [
             <th>Title</th>
             <th>Author</th>
             <th>Price</th>
+            <th>Stock Quantity</th> <!-- Thêm cột Stock Quantity -->
             <th>Status</th>
             <th class="text-center">Actions</th>
           </tr>
@@ -248,9 +249,13 @@ $sort_options = [
                     <?php endif; ?>
                   </div>
                 </td>
-
                 <td><?= htmlspecialchars($book['author'] ?? 'N/A') ?></td>
                 <td><?= number_format($book['price'] ?? 0, 0, ',', '.') ?>đ</td>
+                <td>
+                  <span class="badge <?= ($book['stock_quantity'] ?? 0) > 0 ? 'bg-success' : 'bg-danger' ?>">
+                    <?= htmlspecialchars($book['stock_quantity'] ?? 0) ?>
+                  </span>
+                </td>
                 <td>
                   <span class="badge bg-<?= ($book['is_deleted'] ?? 0) ? 'danger' : 'success' ?>">
                     <?= ($book['is_deleted'] ?? 0) ? 'Deleted' : 'Active' ?>
@@ -270,7 +275,7 @@ $sort_options = [
             <?php endforeach; ?>
           <?php else: ?>
             <tr>
-              <td colspan="7" class="text-center">No books founded.</td>
+              <td colspan="8" class="text-center">No books found.</td> <!-- Cập nhật colspan thành 8 do thêm cột Stock Quantity -->
             </tr>
           <?php endif; ?>
         </tbody>
@@ -287,7 +292,7 @@ $sort_options = [
         <ul class="pagination">
           <li class="page-item <?= $current_page <= 1 ? 'disabled' : '' ?>">
             <a class="page-link" href="?<?= buildQueryString(['page' => $current_page - 1]) ?>" aria-label="Previous">
-              <span aria-hidden="true">&laquo;</span>
+              <span aria-hidden="true">«</span>
             </a>
           </li>
           
@@ -321,7 +326,7 @@ $sort_options = [
           
           <li class="page-item <?= $current_page >= $total_pages ? 'disabled' : '' ?>">
             <a class="page-link" href="?<?= buildQueryString(['page' => $current_page + 1]) ?>" aria-label="Next">
-              <span aria-hidden="true">&raquo;</span>
+              <span aria-hidden="true">»</span>
             </a>
           </li>
         </ul>
