@@ -1,7 +1,7 @@
 <?php
-require_once __DIR__ . '/../controllers/CategoryController.php';
+require_once __DIR__ . '/../controllers/OrderController.php';
 
-$controller = new CategoryController();
+$controller = new OrderController();
 $flag = false;
 
 switch ($_SERVER['REQUEST_METHOD']) {
@@ -21,7 +21,7 @@ switch ($_SERVER['REQUEST_METHOD']) {
 
     case 'POST':
         if ($_GET['action'] == 'create') {
-            AuthMiddleware::requireAuth(true);
+            $data = AuthMiddleware::requireAuth();
             $controller->create();
         }
         else $flag = true;

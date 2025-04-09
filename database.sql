@@ -63,7 +63,9 @@ CREATE TABLE orders (
     user_id CHAR(36),
     total_price DECIMAL(10,2) NOT NULL,
     status ENUM('Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled') DEFAULT 'Pending',
-    shipping_address TEXT,
+    full_name VARCHAR(255) NOT NULL,
+    phone VARCHAR(20) NOT NULL,
+    shipping_address TEXT NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id)
