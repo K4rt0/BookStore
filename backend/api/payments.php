@@ -1,26 +1,23 @@
 <?php
-require_once __DIR__ . '/../controllers/OrderController.php';
+require_once __DIR__ . '/../controllers/PaymentController.php';
 
-$controller = new OrderController();
+$controller = new PaymentController();
 $flag = false;
 
 switch ($_SERVER['REQUEST_METHOD']) {
-    /* case 'GET':
-        if ($_GET['action'] == 'get')
-        {
-            header('Location: /bookstore/backend/api/orders?action=gets');
-            exit();
-        }
+    case 'GET':
+        if ($_GET['action'] == 'result')
+            $controller->result_payment($_GET);
         else $flag = true;
         break;
- */
-    case 'POST':
+
+    /* case 'POST':
         if ($_GET['action'] == 'create') {
             $data = AuthMiddleware::requireAuth();
-            $controller->create();
+            $controller->create_payment();
         }
         else $flag = true;
-        break;
+        break; */
 
     /* case 'PUT':
         if ($_GET['action'] == 'update') {
@@ -28,9 +25,9 @@ switch ($_SERVER['REQUEST_METHOD']) {
             $controller->update();
         }
         else $flag = true;
-        break; */
+        break;
 
-    /* case 'PATCH':
+    case 'PATCH':
         if ($_GET['action'] == 'update-active') {
             AuthMiddleware::requireAuth(true);
             $controller->category_active($_GET);

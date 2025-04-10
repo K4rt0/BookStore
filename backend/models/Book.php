@@ -54,13 +54,13 @@ class Book {
     }
 
     public function get_all_books() {
-        $stmt = $this->conn->prepare("SELECT * FROM {$this->table} WHERE is_deleted = 0");
+        $stmt = $this->conn->prepare("SELECT * FROM {$this->table}");
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
     public function get_all_books_pagination($limit, $offset, $filters = [], $sort = 'created_at_desc') {
-        $query = "SELECT * FROM {$this->table} WHERE is_deleted = 0";
+        $query = "SELECT * FROM {$this->table}";
         $params = [];
     
         $booleanFields = ['is_active', 'is_featured', 'is_new', 'is_best_seller', 'is_discounted'];

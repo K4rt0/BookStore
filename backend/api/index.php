@@ -42,6 +42,9 @@ switch (true) {
     case str_starts_with($resource, 'order'):
         require_once __DIR__ . '/orders.php';
         break;
+    case str_starts_with($resource, 'payment'):
+        require_once __DIR__ . '/payments.php';
+        break;
     default:
         ApiResponse::error("Không tìm thấy route !", 404);
         break;

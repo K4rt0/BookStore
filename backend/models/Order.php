@@ -25,4 +25,22 @@ class Order {
         $stmt = $this->conn->prepare("INSERT INTO order_details (id, order_id, book_id, quantity, price) VALUES (:id, :order_id, :book_id, :quantity, :price)");
         return $stmt->execute($data);
     }
+
+    public function delete($id) {
+        try {
+            $this->conn->beginTransaction();
+
+            $stmt = $this->conn->prepare("DELETE FROM order_details WHERE order_id = :order_id");
+            $stmt->execute(['order_id' => $id]);
+
+            $stmt = $this->conn->prepare("DELETE FROM {$this->table} WHERE id = :id");
+            $stmt->execute(['id' => $id]);
+
+            $this->conn->commit();
+            return true;
+        } catch (Exception $e) {
+            $this->conn->rollBack();
+            return false;
+        }
+    }
 }
