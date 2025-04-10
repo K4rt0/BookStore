@@ -129,10 +129,10 @@ class BookController {
     public function update() {
         $id = $_POST['id'] ?? null;
         if (!$id) return ApiResponse::error("Thiếu ID sách cần cập nhật !", 400);
-    
+
         $existing = $this->book->find_by_id($id);
         if (!$existing) return ApiResponse::error("Sách không tồn tại !", 404);
-    
+
         $data = [
             'title' => $_POST['title'] ?? $existing['title'],
             'author' => $_POST['author'] ?? $existing['author'],
@@ -143,13 +143,13 @@ class BookController {
             'description' => $_POST['description'] ?? $existing['description'],
             'short_description' => $_POST['short_description'] ?? $existing['short_description'],
             'category_id' => $_POST['category_id'] ?? $existing['category_id'],
-            'is_deleted' => isset($_POST['is_deleted']) ? 1 : 0,
-            'is_featured' => isset($_POST['is_featured']) ? 1 : 0,
-            'is_new' => isset($_POST['is_new']) ? 1 : 0,
-            'is_best_seller' => isset($_POST['is_best_seller']) ? 1 : 0,
-            'is_discounted' => isset($_POST['is_discounted']) ? 1 : 0,
+            'is_deleted' => isset($_POST['is_deleted']) ? (int)$_POST['is_deleted'] : 0,
+            'is_featured' => isset($_POST['is_featured']) ? (int)$_POST['is_featured'] : 0,
+            'is_new' => isset($_POST['is_new']) ? (int)$_POST['is_new'] : 0,
+            'is_best_seller' => isset($_POST['is_best_seller']) ? (int)$_POST['is_best_seller'] : 0,
+            'is_discounted' => isset($_POST['is_discounted']) ? (int)$_POST['is_discounted'] : 0,
         ];
-    
+
         if (strlen($data['title']) < 3)
             return ApiResponse::error("Tiêu đề phải có ít nhất 3 ký tự !", 400);
         if (empty($data['author']) || empty($data['publisher']))
@@ -162,21 +162,21 @@ class BookController {
             return ApiResponse::error("Số lượng tồn kho phải lớn hơn 0 !", 400);
         if (empty($data['category_id']) || !$this->category->find_by_id($data['category_id']))
             return ApiResponse::error("Danh mục không hợp lệ !", 400);
-    
+
         if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
             if (!empty($existing['delete_hash']))
                 $this->imgur->delete($existing['delete_hash']);
-    
+
             $imageData = base64_encode(file_get_contents($_FILES['image']['tmp_name']));
             $uploadResult = $this->imgur->upload($imageData);
-    
+
             if (!$uploadResult['success'])
                 return ApiResponse::error("Upload ảnh thất bại !", 500, $uploadResult);
-    
+
             $data['image_url'] = $uploadResult['data']['link'];
             $data['delete_hash'] = $uploadResult['data']['deletehash'];
         }
-    
+
         if ($this->book->update($id, $data))
             ApiResponse::success("Cập nhật sách thành công !");
         else
