@@ -1,0 +1,9 @@
+RewriteEngine On
+RewriteBase /BookStore/frontend/
+
+# Nếu đường dẫn là thư mục hoặc file có thật thì không rewrite
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+
+# Rewrite URL đẹp → index.php xử lý
+RewriteRule ^(.*)$ index.php?url=$1 [QSA,L]
