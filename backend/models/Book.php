@@ -60,10 +60,10 @@ class Book {
     }
 
     public function get_all_books_pagination($limit, $offset, $filters = [], $sort = 'created_at_desc') {
-        $query = "SELECT * FROM {$this->table}";
+        $query = "SELECT * FROM {$this->table} WHERE 1=1";
         $params = [];
     
-        $booleanFields = ['is_active', 'is_featured', 'is_new', 'is_best_seller', 'is_discounted'];
+        $booleanFields = ['is_deleted', 'is_featured', 'is_new', 'is_best_seller', 'is_discounted'];
     
         foreach ($booleanFields as $field) {
             if (array_key_exists($field, $filters)) {
