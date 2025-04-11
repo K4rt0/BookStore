@@ -56,6 +56,7 @@ $routes = [
     'admin/book-edit' => 'pages/admin/book-edit.php',
     'admin/orders' => 'pages/admin/orders.php',
     'admin/order-details' => 'pages/admin/order-details.php', 
+    'admin/reviews' => 'pages/admin/reviews.php', 
 ];
 
 $admin_only_routes = [

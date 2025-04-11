@@ -12,7 +12,7 @@ $user_id = $_SESSION['user_id'] ?? null;
 
 // Redirect to login if not authenticated
 if (empty($access_token) || empty($user_id)) {
-    header("Location: /login");
+    header("Location: /login"); 
     exit();
 }
 
