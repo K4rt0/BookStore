@@ -1,15 +1,15 @@
 <?php
 class MomoService {
-    public static function createPaymentUrl($orderId, $amount, $orderInfo = 'Thanh toan MoMo') {
+    public static function createPaymentUrl($payment_id, $amount, $orderInfo = 'Thanh toan MoMo') {
         $endpoint = $_ENV['MOMO_API_URL'];
         $partnerCode = $_ENV['MOMO_PARTNER_CODE'];
         $accessKey = $_ENV['MOMO_ACCESS_KEY'];
         $secretKey = $_ENV['MOMO_SECRET_KEY'];
-        $returnUrl = $_ENV['MOMO_RETURN_URL'];
+        $returnUrl = $_ENV['MOMO_RETURN_URL'] . '&payment_id=' . urlencode($payment_id);
         $notifyUrl = $_ENV['MOMO_NOTIFY_URL'];
         $requestType = $_ENV['MOMO_REQUEST_TYPE'];
         
-        $orderId = preg_replace('/[^a-zA-Z0-9]/', '', $orderId);
+        $payment_id = preg_replace('/[^a-zA-Z0-9]/', '', $payment_id);
         
         $requestId = time() . rand(1000, 9999);
         
@@ -18,7 +18,7 @@ class MomoService {
             'accessKey' => $accessKey,
             'requestId' => $requestId,
             'amount' => (string)$amount,
-            'orderId' => $orderId,
+            'orderId' => $payment_id,
             'orderInfo' => $orderInfo,
             'returnUrl' => $returnUrl,
             'notifyUrl' => $notifyUrl,
@@ -30,9 +30,9 @@ class MomoService {
                        "&accessKey=" . $accessKey . 
                        "&requestId=" . $requestId . 
                        "&amount=" . $amount . 
-                       "&orderId=" . $orderId . 
+                       "&orderId=" . $payment_id . 
                        "&orderInfo=" . $orderInfo . 
-                       "&returnUrl=" . $returnUrl . $orderId . 
+                       "&returnUrl=" . $returnUrl . 
                        "&notifyUrl=" . $notifyUrl . 
                        "&extraData=";
         

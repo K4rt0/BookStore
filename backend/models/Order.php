@@ -16,6 +16,12 @@ class Order {
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
 
+    public function find_all_orders() {
+        $stmt = $this->conn->prepare("SELECT * FROM {$this->table} ORDER BY created_at DESC");
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
     public function create($data) {
         $stmt = $this->conn->prepare("INSERT INTO {$this->table} (id, user_id, total_price, full_name, phone, status, shipping_address) VALUES (:id, :user_id, :total_price, :full_name, :phone, :status, :shipping_address)");
         return $stmt->execute($data);
