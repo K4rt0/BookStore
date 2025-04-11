@@ -169,9 +169,19 @@ error_log("Total orders: $total_orders, Limit: $limit, Page: $page, Orders retur
                                         <td><?= htmlspecialchars($order['full_name']) ?></td>
                                         <td>$<?= number_format($order['total_price'], 2) ?></td>
                                         <td>
-                                            <span class="badge bg-<?= $order['status'] === 'Delivered' ? 'success' : ($order['status'] === 'Pending' ? 'warning' : 'info') ?>">
-                                                <?= htmlspecialchars($order['status']) ?>
+                                            <?php
+                                            $status = $order['status'];
+                                            $badgeClass = match ($status) {
+                                                'Delivered' => 'success',
+                                                'Shipped'   => 'info',
+                                                'Pending'   => 'warning',
+                                                default     => 'danger',
+                                            };
+                                            ?>
+                                            <span class="badge bg-<?= $badgeClass ?>">
+                                                <?= htmlspecialchars($status) ?>
                                             </span>
+
                                         </td>
                                         <td><?= htmlspecialchars(date('d/m/Y H:i', strtotime($order['created_at']))) ?></td>
                                         <td>

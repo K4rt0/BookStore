@@ -26,6 +26,8 @@ $update_error = '';
 $update_success = '';
 $password_error = '';
 $password_success = '';
+$cancel_success = '';
+$cancel_error = '';
 
 // Xử lý cập nhật thông tin cá nhân
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $active_tab === 'personal') {
@@ -104,6 +106,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $active_tab === 'password') {
         }
     }
 }
+// Xử lý hủy đơn hàng
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['cancel_order_id'])) {
+    $order_id = $_POST['cancel_order_id'];
+    
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, "$api_base_url/order?action=cancel-order&order_id=" . urlencode($order_id));
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'PATCH');
+
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Authorization: Bearer ' . $_SESSION['access_token'],
+        'Content-Type: application/json'
+    ]);
+
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([]));
+
+    $response = curl_exec($ch);
+    $http_status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    $result = json_decode($response, true);
+
+    if ($http_status === 200 && $result['success']) {
+        $cancel_success = 'Order canceled successfully!';
+    } else {
+        $cancel_error = $result['message'] ?? 'Failed to cancel order. Please try again.';
+    }
+}
+
 
 ob_start();
 ?>
@@ -186,7 +218,15 @@ ob_start();
                                 <h5><i class="fas fa-shopping-bag"></i> My Orders</h5>
                             </div>
                             <div class="card-body">
-                                <!-- Filter Form -->
+                                <!-- Hiển thị thông báo hủy đơn hàng -->
+                                <?php if ($cancel_success): ?>
+                                    <div class="message-success"><?= htmlspecialchars($cancel_success) ?></div>
+                                <?php endif; ?>
+                                <?php if ($cancel_error): ?>
+                                    <div class="message-error"><?= htmlspecialchars($cancel_error) ?></div>
+                                <?php endif; ?>
+
+                                <!-- Form lọc đơn hàng -->
                                 <form id="order-filter-form" class="mb-4">
                                     <div class="row g-3">
                                         <div class="col-md-3">
@@ -216,10 +256,10 @@ ob_start();
                                     </div>
                                 </form>
 
-                                <!-- Orders List -->
+                                <!-- Danh sách đơn hàng -->
                                 <div id="orders-list">
                                     <?php
-                                    // Function to fetch orders (paginated list)
+                                    // Hàm lấy danh sách đơn hàng (phân trang)
                                     function fetchOrders($api_base_url, $user_id, $access_token, $page = 1, $limit = 5, $status = '', $payment_status = '', $search = '') {
                                         $query_params = http_build_query([
                                             'action' => 'get-all-my-orders-pagination',
@@ -262,6 +302,8 @@ ob_start();
 
                                     if ($orders_data['success'] && !empty($orders_data['data']['orders'])) {
                                         foreach ($orders_data['data']['orders'] as $order) {
+                                            // Kiểm tra xem đơn hàng có thể hủy được không
+                                            $can_cancel = in_array($order['status'], ['Pending', 'Processing']);
                                     ?>
                                         <div class="order-item mb-3 p-3 border rounded">
                                             <div class="row">
@@ -271,7 +313,7 @@ ob_start();
                                                 </div>
                                                 <div class="col-md-3">
                                                     <p><strong>Status:</strong> 
-                                                        <span class="badge bg-<?= $order['status'] === 'Delivered' ? 'success' : ($order['status'] === 'Pending' ? 'warning' : 'info') ?>">
+                                                        <span class="badge bg-<?= $order['status'] === 'Delivered' ? 'success' : ($order['status'] === 'Pending' ? 'warning' : ($order['status'] === 'Cancelled' ? 'danger' : 'info')) ?>">
                                                             <?= htmlspecialchars($order['status']) ?>
                                                         </span>
                                                     </p>
@@ -282,27 +324,52 @@ ob_start();
                                                     <p><?= htmlspecialchars($order['shipping_address']) ?></p>
                                                 </div>
                                                 <div class="col-md-2 text-end">
-                                                    <a href="/profile?tab=order-details&id=<?= htmlspecialchars($order['id']) ?>" class="btn btn-sm btn-outline-primary">View</a>
+                                                    <a href="/profile?tab=order-details&id=<?= htmlspecialchars($order['id']) ?>" class="btn btn-sm px-4 py-3 bg-secondary">View</a>
+                                                    <?php if ($can_cancel): ?>
+                                                        <button class="btn btn-sm btn-outline-danger mt-2 px-4 py-3 cancel-order-btn" data-order-id="<?= htmlspecialchars($order['id']) ?>">Cancel</button>
+                                                    <?php endif; ?>
                                                 </div>
                                             </div>
                                         </div>
                                     <?php
                                         }
-                                        // Pagination
-                                        $total_orders = isset($orders_data['data']['total']) ? $orders_data['data']['total'] : 8; // Fallback to 8 until API provides total
+                                        // Phân trang
+                                        // Sử dụng total từ API nếu có, nếu không thì giả định có thêm trang nếu số lượng đơn hàng bằng limit
+                                        $total_orders = isset($orders_data['data']['total']) && $orders_data['data']['total'] > 0 ? $orders_data['data']['total'] : count($orders_data['data']['orders']);
+                                        // Nếu số lượng đơn hàng hiện tại bằng limit, giả định có ít nhất một trang tiếp theo
+                                        if (count($orders_data['data']['orders']) == $limit && !isset($orders_data['data']['total'])) {
+                                            $total_orders += $limit; // Giả định có ít nhất một trang nữa
+                                        }
                                         $total_pages = ceil($total_orders / $limit);
 
+                                        // Ghi log để kiểm tra
                                         error_log("Total orders: $total_orders, Limit: $limit, Total pages: $total_pages, Current page: $page, Orders returned: " . count($orders_data['data']['orders']));
 
                                         if ($total_pages > 1) {
                                     ?>
                                         <nav aria-label="Orders pagination">
                                             <ul class="pagination justify-content-center">
-                                                <?php for ($i = 1; $i <= $total_pages; $i++): ?>
+                                                <!-- Nút Previous -->
+                                                <li class="page-item <?= $page <= 1 ? 'disabled' : '' ?>">
+                                                    <a class="page-link" href="/profile?tab=orders&page=<?= $page - 1 ?>&status=<?= urlencode($status) ?>&payment_status=<?= urlencode($payment_status) ?>&search=<?= urlencode($search) ?>">Previous</a>
+                                                </li>
+                                                <?php
+                                                // Giới hạn số trang hiển thị (ví dụ: tối đa 5 trang quanh trang hiện tại)
+                                                $start_page = max(1, $page - 2);
+                                                $end_page = min($total_pages, $page + 2);
+                                                if ($end_page - $start_page < 4) {
+                                                    $start_page = max(1, $end_page - 4);
+                                                }
+                                                for ($i = $start_page; $i <= $end_page; $i++):
+                                                ?>
                                                     <li class="page-item <?= $i == $page ? 'active' : '' ?>">
                                                         <a class="page-link" href="/profile?tab=orders&page=<?= $i ?>&status=<?= urlencode($status) ?>&payment_status=<?= urlencode($payment_status) ?>&search=<?= urlencode($search) ?>"><?= $i ?></a>
                                                     </li>
                                                 <?php endfor; ?>
+                                                <!-- Nút Next -->
+                                                <li class="page-item <?= $page >= $total_pages ? 'disabled' : '' ?>">
+                                                    <a class="page-link" href="/profile?tab=orders&page=<?= $page + 1 ?>&status=<?= urlencode($status) ?>&payment_status=<?= urlencode($payment_status) ?>&search=<?= urlencode($search) ?>">Next</a>
+                                                </li>
                                             </ul>
                                         </nav>
                                     <?php
@@ -332,7 +399,7 @@ ob_start();
                             </div>
                             <div class="card-body">
                                 <?php
-                                // Function to fetch order details
+                                // Hàm lấy chi tiết đơn hàng
                                 function fetchOrderDetails($api_base_url, $order_id, $access_token) {
                                     $query_params = http_build_query([
                                         'action' => 'get-order',
@@ -379,7 +446,7 @@ ob_start();
                                             <div class="col-md-6">
                                                 <p><strong>Total Price:</strong> $<?= number_format($order['total_price'], 2) ?></p>
                                                 <p><strong>Status:</strong> 
-                                                    <span class="badge bg-<?= $order['status'] === 'Delivered' ? 'success' : ($order['status'] === 'Pending' ? 'warning' : 'info') ?>">
+                                                    <span class="badge bg-<?= $order['status'] === 'Delivered' ? 'success' : ($order['status'] === 'Pending' ? 'warning' : ($order['status'] === 'Cancelled' ? 'danger' : 'info')) ?>">
                                                         <?= htmlspecialchars($order['status']) ?>
                                                     </span>
                                                 </p>
@@ -501,6 +568,7 @@ ob_start();
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Xử lý form lọc đơn hàng
     const filterForm = document.getElementById('order-filter-form');
     if (filterForm) {
         filterForm.addEventListener('submit', function(e) {
@@ -518,6 +586,28 @@ document.addEventListener('DOMContentLoaded', function() {
             window.location.href = url.toString();
         });
     }
+
+    // Xử lý nút hủy đơn hàng
+    const cancelButtons = document.querySelectorAll('.cancel-order-btn');
+    cancelButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const orderId = this.getAttribute('data-order-id');
+            if (confirm('Are you sure you want to cancel order #' + orderId + '? This action cannot be undone.')) {
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '/profile?tab=orders';
+                
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'cancel_order_id';
+                input.value = orderId;
+                
+                form.appendChild(input);
+                document.body.appendChild(form);
+                form.submit();
+            }
+        });
+    });
 });
 </script>
 
