@@ -1,11 +1,8 @@
 <?php
 $page_title = "Book Shop - Checkout";
 ob_start();
-
-// Start session
 session_start();
 
-// API base URL and session variables
 $api_base_url = $_ENV['API_BASE_URL'];
 $access_token = $_SESSION['access_token'] ?? null;
 $user_id = $_SESSION['user_id'] ?? null;
@@ -16,7 +13,6 @@ if (empty($access_token) || empty($user_id)) {
     exit();
 }
 
-// Function to make API requests
 function makeApiRequest($url, $access_token, $method = 'GET', $body = null) {
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL, $url);
@@ -214,7 +210,7 @@ $error_message = isset($error_message) ? $error_message : ($_GET['error'] ?? nul
                             <input type="email" class="form-control" id="email" name="email" value="<?php echo htmlspecialchars($user_data['email'] ?? ''); ?>" placeholder="**Email Address" required />
                         </div>
                         <div class="col-md-12 form-group p_star">
-                            <input type="text" class="form-control" id="shipping_address" name="shipping_address" value="<?php echo htmlspecialchars($user_data['address'] ?? ''); ?>" placeholder="**Address (House number, street, ward/commune)" required />
+                            <input type="text" class="form-control" id="add1" name="address1" value="<?php echo htmlspecialchars($user_data['address'] ?? ''); ?>" placeholder="**Address (House number, street, ward/commune)" required />
                         </div>
                         <div class="col-md-12 form-group">
                             <textarea class="form-control" name="message" id="message" rows="1" placeholder="**Order Notes (optional)"><?php echo htmlspecialchars($user_data['notes'] ?? ''); ?></textarea>
@@ -338,38 +334,41 @@ document.querySelectorAll('input[name="online_payment_method"]').forEach(input =
 updatePaymentMethod('vnpay');
 
 const paypalClientId = '<?php echo htmlspecialchars($_ENV['PAYPAL_CLIENT_ID'] ?? ''); ?>';
-if (paypalClientId) {
-    const script = document.createElement('script');
-    script.src = `https://www.paypal.com/sdk/js?client-id=${paypalClientId}¤cy=USD`;
-    script.async = true;
-    script.onload = () => {
-        paypal.Buttons({
-            style: {
-                shape: "rect",
-                layout: "vertical",
-                color: "gold",
-                label: "paypal",
-            },
-            onClick: () => {
-                const form = document.getElementById('checkout_form');
-                if (!form.checkValidity()) {
-                    form.reportValidity();
-                    return false;
-                }
-            },
-            createOrder: async () => {
-                try {
-                    const formData = new FormData(document.getElementById('checkout_form'));
-                    const data = Object.fromEntries(formData.entries());
+// Load PayPal SDK dynamically
+const script = document.createElement('script');
+script.src = `https://www.paypal.com/sdk/js?client-id=${paypalClientId}&currency=USD`;
+script.async = true;
+script.onload = () => {
+    paypal.Buttons({
+        style: {
+            shape: "rect",
+            layout: "vertical",
+            color: "gold",
+            label: "paypal",
+        },
+        onClick: () => {
+            // Validate form before proceeding
+            const form = document.getElementById('checkout_form');
+            if (!form.checkValidity()) {
+                form.reportValidity();
+                return false;
+            }
+        },
+        createOrder: async () => {
+            try {
+                // Collect form data
+                const formData = new FormData(document.getElementById('checkout_form'));
+                const data = Object.fromEntries(formData.entries());
 
-                    const orderInfo = {
-                        user_id: '<?php echo $user_id; ?>',
-                        full_name: data.full_name,
-                        phone: data.phone,
-                        total_price: parseFloat(data.amount),
-                        shipping_address: data.shipping_address,
-                        payment_method: 'PAYPAL'
-                    };
+                // Prepare order data
+                const orderInfo = {
+                    user_id: '<?php echo $user_id; ?>',
+                    full_name: data.first_name,
+                    phone: data.phone,
+                    total_price: parseFloat(data.amount),
+                    shipping_address: data.address1,
+                    payment_method: 'PAYPAL'
+                };
 
                     const cartItems = <?php echo json_encode($_SESSION['cart_items'] ?? []); ?>;
                     const cartIds = cartItems.map(item => item.id);
