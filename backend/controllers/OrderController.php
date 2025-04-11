@@ -2,25 +2,30 @@
 require_once __DIR__ . '/../models/Order.php';
 require_once __DIR__ . '/../models/Book.php';
 require_once __DIR__ . '/../models/Cart.php';
+require_once __DIR__ . '/../models/Payment.php';
 require_once __DIR__ . '/../helpers/AuthMiddleware.php';
+require_once __DIR__ . '/../helpers/payments/MomoService.php';
+require_once __DIR__ . '/../helpers/payments/PayPalService.php';
 
 class OrderController {
     private $order;
     private $book;
     private $cart;
+    private $payment;
 
     public function __construct() {
         $this->order = new Order();
         $this->book = new Book();
         $this->cart = new Cart();
+        $this->payment = new Payment();
     }
 
     // GET methods
-    /* public function get_all_categories() {
-        $categories = $this->category->get_all_categories();
-        ApiResponse::success("Lấy danh sách danh mục thành công !", 200, $categories);
+    public function get_all_orders() {
+        $orders = $this->order->find_all_orders();
+        ApiResponse::success("Lấy danh sách danh mục thành công !", 200, $orders);
     }
-    public function get_all_categories_pagination($query) {
+    /* public function get_all_categories_pagination($query) {
         $page = isset($query['page']) && is_numeric($query['page']) && $query['page'] > 0 ? (int)$query['page'] : 1;
         $limit = isset($query['limit']) && is_numeric($query['limit']) && $query['limit'] > 0 ? (int)$query['limit'] : 10;
         $offset = ($page - 1) * $limit;
@@ -41,16 +46,16 @@ class OrderController {
             ApiResponse::success("Lấy danh sách danh mục thành công !", 200, [
                 "categories" => $categories,
             ]);
-    }
-    public function get_category($params) {
-        $id = $params['id'] ?? null;
-        $category = null;
-
-        if (empty($id) || !($category = $this->category->find_by_id($id)))
-            return ApiResponse::error("Danh mục không tồn tại !", 404);
-
-        ApiResponse::success("Lấy danh mục thành công !", 200, $category);
     } */
+    public function get_order($params) {
+        $id = $params['id'] ?? null;
+        $order = null;
+
+        if (empty($id) || !($order = $this->order->find_by_id($id)))
+            return ApiResponse::error("Đơn hàng không tồn tại !", 404);
+
+        ApiResponse::success("Lấy đơn hàng thành công !", 200, $order);
+    }
     
     // POST methods
     public function create() {
@@ -103,16 +108,57 @@ class OrderController {
 
         foreach ($carts as $cart) {
             $orderDetail = [
-            'id' => bin2hex(random_bytes(16)),
-            'order_id' => $order_id,
-            'book_id' => $cart['book_id'],
-            'quantity' => $cart['quantity'],
-            'price' => (float)$cart['price'],
+                'id' => bin2hex(random_bytes(16)),
+                'order_id' => $order_id,
+                'book_id' => $cart['book_id'],
+                'quantity' => $cart['quantity'],
+                'price' => (float)$cart['price'],
             ];
             $this->order->create_orders_detail($orderDetail);
-            $this->cart->delete($cart['id']);
+            // $this->cart->delete($cart['id']);
         }
-        ApiResponse::success("Tạo đơn hàng thành công !", 200, $order);
+        
+        $payment_method = strtolower($input['order_info']['payment_method']);
+        $orderInfo = "Thanh toan don hang " . $order_id;
+        AuthMiddleware::requireAuth();
+        
+        if ($payment_method === 'cod') {
+            $payment = [
+                'id' => bin2hex(random_bytes(16)),
+                'order_id' => $order_id,
+                'payment_method' => 'COD',
+                'status' => 'Paid'
+            ];
+            $this->payment->create($payment);
+            
+            ApiResponse::success("Tạo đơn hàng thành công !", 200, [
+                'payment_url' => 'http://localhost:8000/order-result.php?status=success&method=cod&order_id=' . $order_id,
+            ]);
+        }
+        else if ($payment_method === 'momo') {
+            $id = bin2hex(random_bytes(16));
+            $payment = [
+                'id' => $id,
+                'order_id' => $order_id,
+                'payment_method' => 'Momo',
+                'status' => 'Pending'
+            ];
+            $this->payment->create($payment);
+
+            $result = MomoService::createPaymentUrl($id, $order['total_price'], $orderInfo);
+            if ($result['success']) {
+                ApiResponse::success("Tạo đơn hàng thành công !", 200, [
+                    'payment_url' => $result['payment_url'],
+                ]);
+            } else {
+                $this->order->delete($order_id);
+                ApiResponse::error("Không thể tạo URL thanh toán: " . $result['message'], 400);
+            }
+        }
+        else {
+            $this->order->delete($order_id);
+            ApiResponse::error("Phương thức thanh toán không hợp lệ !", 400);
+        }
     }
 
     // PUT methods
@@ -120,7 +166,7 @@ class OrderController {
     // PATCH methods
     /* public function category_active($params) {
         $id = $params['id'] ?? null;
-        $is_active = $params['is_active'] ?? null;
+        $is_actidve = $params['is_active'] ?? null;
 
         if (empty($id) || !$this->category->find_by_id($id))
             return ApiResponse::error("Danh mục không tồn tại !", 404);

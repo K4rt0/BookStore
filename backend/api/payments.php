@@ -1,26 +1,24 @@
 <?php
-require_once __DIR__ . '/../controllers/OrderController.php';
+require_once __DIR__ . '/../controllers/PaymentController.php';
+require_once __DIR__ . '/../helpers/AuthMiddleware.php';
 
-$controller = new OrderController();
+$controller = new PaymentController();
 $flag = false;
 
 switch ($_SERVER['REQUEST_METHOD']) {
     case 'GET':
-        if ($_GET['action'] == 'get-order')
-        {
-            $data = AuthMiddleware::requireAuth();
-            $controller->get_order($_GET);
-        }
+        if ($_GET['action'] == 'result')
+            $controller->result_payment($_GET);
         else $flag = true;
         break;
 
-    case 'POST':
+    /* case 'POST':
         if ($_GET['action'] == 'create') {
             $data = AuthMiddleware::requireAuth();
-            $controller->create();
+            $controller->create_payment();
         }
         else $flag = true;
-        break;
+        break; */
 
     /* case 'PUT':
         if ($_GET['action'] == 'update') {
@@ -30,13 +28,13 @@ switch ($_SERVER['REQUEST_METHOD']) {
         else $flag = true;
         break; */
 
-    /* case 'PATCH':
-        if ($_GET['action'] == 'update-active') {
+    case 'PATCH':
+        if ($_GET['action'] == 'update') {
             AuthMiddleware::requireAuth(true);
-            $controller->category_active($_GET);
+            $controller->update_payment();
         }
         else $flag = true;
-        break; */
+        break;
         
     default:
         $flag = true;

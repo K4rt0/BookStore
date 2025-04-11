@@ -98,7 +98,7 @@ CREATE TABLE reviews (
 CREATE TABLE payments (
     id CHAR(36) PRIMARY KEY,
     order_id CHAR(36),
-    payment_method ENUM('VNPay', 'Momo', 'COD', 'Paypal', 'Stripe'),
+    payment_method ENUM('Momo', 'COD'),
     status ENUM('Pending', 'Paid', 'Failed', 'Refunded') DEFAULT 'Pending',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
