@@ -1,11 +1,8 @@
 <?php
 $page_title = "Book Shop - Checkout";
 ob_start();
-
-// Start session
 session_start();
 
-// API base URL and session variables
 $api_base_url = $_ENV['API_BASE_URL'];
 $access_token = $_SESSION['access_token'] ?? null;
 $user_id = $_SESSION['user_id'] ?? null;
@@ -16,7 +13,6 @@ if (empty($access_token) || empty($user_id)) {
     exit();
 }
 
-// Function to make API requests
 function makeApiRequest($url, $access_token, $method = 'GET', $body = null) {
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL, $url);
@@ -55,6 +51,12 @@ function makeApiRequest($url, $access_token, $method = 'GET', $body = null) {
         : ["success" => false, "message" => $decoded_response['message'] ?? "Unable to fetch data (HTTP $http_code)", "data" => null, "http_code" => $http_code];
 }
 
+// Function to save order to API
+function saveOrder($api_base_url, $access_token, $order_data) {
+    $url = $api_base_url . "/order?action=create"; // Updated to match your request
+    return makeApiRequest($url, $access_token, 'POST', $order_data);
+}
+
 // Fetch cart data
 function fetchCartData($api_base_url, $access_token) {
     return makeApiRequest($api_base_url . "/cart?action=get-cart", $access_token);
@@ -68,12 +70,6 @@ function fetchBookDetails($api_base_url, $access_token, $book_id) {
 // Fetch user data
 function fetchUserData($api_base_url, $access_token, $user_id) {
     return makeApiRequest($api_base_url . "/user?action=get-user&id=" . urlencode($user_id), $access_token);
-}
-
-// Function to save order to API
-function saveOrder($api_base_url, $access_token, $order_data) {
-    $url = $api_base_url . "/order?action=create-order";
-    return makeApiRequest($url, $access_token, 'POST', $order_data);
 }
 
 // Function to get payment URL from backend API
@@ -96,52 +92,66 @@ function getPaymentUrl($api_base_url, $access_token, $payment_method, $order_id,
 
 // Process checkout if form is submitted
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Retrieve form data
-    $payment_method = $_POST['payment_method'];
-    $amount = floatval($_POST['amount']);
-    $order_info = [
-        "user_id" => $user_id,
-        "full_name" => $_POST['first_name'],
-        "phone" => $_POST['phone'],
-        "total_price" => $amount,
-        "shipping_address" => $_POST['address1'],
-        "payment_method" => strtoupper($payment_method) // VNPAY, PAYPAL, MOMO, or COD
-    ];
-    
-    // Retrieve cart items from session
-    $carts = $_SESSION['cart_items'] ?? [];
-    $cart_ids = array_column($carts, 'id');
+    // Retrieve and validate form data
+    $payment_method = $_POST['payment_method'] ?? '';
+    $amount = floatval($_POST['amount'] ?? 0);
+    $full_name = trim($_POST['full_name'] ?? '');
+    $phone = trim($_POST['phone'] ?? '');
+    $shipping_address = trim($_POST['shipping_address'] ?? '');
 
-    // Create order data
-    $order_data = [
-        "order_info" => $order_info,
-        "carts" => $cart_ids
-    ];
-
-    // Save order via API
-    $order_response = saveOrder($api_base_url, $access_token, $order_data);
-    
-    if ($order_response['success'] && isset($order_response['data']['order_id'])) {
-        $order_id = $order_response['data']['order_id'];
-
-        if (in_array($payment_method, ['vnpay', 'paypal', 'momo'])) {
-            // Call backend API to get payment URL
-            $payment_response = getPaymentUrl($api_base_url, $access_token, $payment_method, $order_id, $amount);
-            
-            if ($payment_response['success'] && isset($payment_response['data']['url'])) {
-                $payment_url = $payment_response['data']['url'];
-                header("Location: $payment_url");
-                exit();
-            } else {
-                $error_message = $payment_response['message'] ?? "Failed to generate payment URL for $payment_method";
-            }
-        } else if ($payment_method === 'cod') {
-            // Redirect to order confirmation page for COD
-            header("Location: /order_confirmation?order_id=$order_id");
-            exit();
-        }
+    // Validate required fields
+    if (empty($full_name) || empty($phone) || empty($shipping_address) || empty($payment_method) || $amount <= 0) {
+        $error_message = "Please fill in all required fields.";
     } else {
-        $error_message = $order_response['message'] ?? "Failed to create order";
+        $order_info = [
+            "user_id" => $user_id,
+            "full_name" => $full_name, 
+            "phone" => $phone,
+            "total_price" => $amount,
+            "shipping_address" => $shipping_address,
+            "payment_method" => $payment_method // Keep lowercase (e.g., "momo")
+        ];
+
+        // Retrieve cart items from session
+        $carts = $_SESSION['cart_items'] ?? [];
+        $cart_ids = array_column($carts, 'id');
+
+        // Validate cart items
+        if (empty($cart_ids)) {
+            $error_message = "Your cart is empty.";
+        } else {
+            // Create order_data matching the provided JSON structure
+            $order_data = [
+                "order_info" => $order_info,
+                "carts" => $cart_ids
+            ];
+
+            // Save order via API
+            $order_response = saveOrder($api_base_url, $access_token, $order_data);
+            
+            if ($order_response['success'] && isset($order_response['data']['order_id'])) {
+                $order_id = $order_response['data']['order_id'];
+
+                if (in_array($payment_method, ['vnpay', 'paypal', 'momo'])) {
+                    // Call backend API to get payment URL
+                    $payment_response = getPaymentUrl($api_base_url, $access_token, $payment_method, $order_id, $amount);
+                    
+                    if ($payment_response['success'] && isset($payment_response['data']['url'])) {
+                        $payment_url = $payment_response['data']['url'];
+                        header("Location: $payment_url");
+                        exit();
+                    } else {
+                        $error_message = $payment_response['message'] ?? "Failed to generate payment URL for $payment_method";
+                    }
+                } else if ($payment_method === 'cod') {
+                    // Redirect to order confirmation page for COD
+                    header("Location: /order_confirmation?order_id=$order_id");
+                    exit();
+                }
+            } else {
+                $error_message = $order_response['message'] ?? "Failed to create order";
+            }
+        }
     }
 }
 
@@ -227,16 +237,16 @@ $error_message = isset($error_message) ? $error_message : ($_GET['error'] ?? nul
                     <h3>Billing Information</h3>
                     <form class="row contact_form" action="" method="post" novalidate="novalidate" id="checkout_form">
                         <div class="col-md-12 form-group p_star">
-                            <input type="text" class="form-control" id="first" name="first_name" value="<?php echo htmlspecialchars($user_data['full_name'] ?? ''); ?>" placeholder="**Full Name" required />
+                            <input type="text" class="form-control" id="full_name" name="full_name" value="<?php echo htmlspecialchars($user_data['full_name'] ?? ''); ?>" placeholder="**Full Name" required />
                         </div>
                         <div class="col-md-6 form-group p_star">
-                            <input type="tel" class="form-control" id="number" name="phone" value="<?php echo htmlspecialchars($user_data['phone'] ?? ''); ?>" placeholder="**Phone Number" required />
+                            <input type="tel" class="form-control" id="phone" name="phone" value="<?php echo htmlspecialchars($user_data['phone'] ?? ''); ?>" placeholder="**Phone Number" required />
                         </div>
                         <div class="col-md-6 form-group p_star">
                             <input type="email" class="form-control" id="email" name="email" value="<?php echo htmlspecialchars($user_data['email'] ?? ''); ?>" placeholder="**Email Address" required />
                         </div>
                         <div class="col-md-12 form-group p_star">
-                            <input type="text" class="form-control" id="add1" name="address1" value="<?php echo htmlspecialchars($user_data['address'] ?? ''); ?>" placeholder="**Address (House number, street, ward/commune)" required />
+                            <input type="text" class="form-control" id="shipping_address" name="shipping_address" value="<?php echo htmlspecialchars($user_data['shipping_address'] ?? ''); ?>" placeholder="**Address (House number, street, ward/commune)" required />
                         </div>
                         <div class="col-md-12 form-group">
                             <textarea class="form-control" name="message" id="message" rows="1" placeholder="**Order Notes (optional)"><?php echo htmlspecialchars($user_data['notes'] ?? ''); ?></textarea>
@@ -321,7 +331,6 @@ function updatePaymentMethod(method) {
     const paypalButtonContainer = document.getElementById('paypal-button-container');
 
     if (method === 'online') {
-        // Default to VNPay if "Online Payment" is selected
         const onlineMethod = document.querySelector('input[name="online_payment_method"]:checked').value;
         paymentMethodInput.value = onlineMethod;
         if (onlineMethod === 'paypal') {
@@ -364,7 +373,7 @@ updatePaymentMethod('vnpay');
 const paypalClientId = '<?php echo htmlspecialchars($_ENV['PAYPAL_CLIENT_ID'] ?? ''); ?>';
 // Load PayPal SDK dynamically
 const script = document.createElement('script');
-script.src = `https://www.paypal.com/sdk/js?client-id=${paypalClientId}&currency=USD`;
+script.src = `https://www.paypal.com/sdk/js?client-id=${paypalClientId}¤cy=USD`;
 script.async = true;
 script.onload = () => {
     paypal.Buttons({
@@ -388,15 +397,15 @@ script.onload = () => {
                 const formData = new FormData(document.getElementById('checkout_form'));
                 const data = Object.fromEntries(formData.entries());
 
-                // Prepare order data
-                const orderInfo = {
-                    user_id: '<?php echo $user_id; ?>',
-                    full_name: data.first_name,
-                    phone: data.phone,
-                    total_price: parseFloat(data.amount),
-                    shipping_address: data.address1,
-                    payment_method: 'PAYPAL'
-                };
+                // Prepare order data with full_name as required
+                // const orderInfo = [
+                //     user_id: '<?php echo $user_id; ?>',
+                //     full_name: data.full_name, // Reverted to full_name to match API expectation
+                //     phone: data.phone,
+                //     total_price: parseFloat(data.amount),
+                //     shipping_address: data.shipping_address,
+                //     payment_method: 'paypal'
+                // ];
 
                 const cartItems = <?php echo json_encode($_SESSION['cart_items'] ?? []); ?>;
                 const cartIds = cartItems.map(item => item.id);

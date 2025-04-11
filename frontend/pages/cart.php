@@ -191,11 +191,6 @@ if ($cart_response['success'] && !empty($cart_response['data'])) {
                             <tr>
                                 <td colspan="5" class="text-center">
                                     <p>Your cart is empty!</p>
-                                    <?php if (!empty($errors)): ?>
-                                        <?php foreach ($errors as $error): ?>
-                                            <p style="color: red;">Error: <?php echo htmlspecialchars($error); ?></p>
-                                        <?php endforeach; ?>
-                                    <?php endif; ?>
                                 </td>
                             </tr>
                         <?php endif; ?>
