@@ -407,7 +407,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const currentQuantity = parseInt(input.value) || 0;
 
             if (currentQuantity >= 1) {
-                const newQuantity = currentQuantity; // Decrement the quantity
+                const newQuantity = currentQuantity;
                 updateQuantity(cartId, newQuantity, row);
             } else if (currentQuantity === 1) {
                 if (confirm('Remove this item from your cart?')) {
