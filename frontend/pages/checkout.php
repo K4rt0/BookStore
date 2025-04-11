@@ -72,7 +72,7 @@ function fetchUserData($api_base_url, $access_token, $user_id) {
 
 // Function to save order to API
 function saveOrder($api_base_url, $access_token, $order_data) {
-    $url = $api_base_url . "/order?action=create-order";
+    $url = $api_base_url . "/order?action=create";
     return makeApiRequest($url, $access_token, 'POST', $order_data);
 }
 
@@ -94,9 +94,7 @@ function getPaymentUrl($api_base_url, $access_token, $payment_method, $order_id,
     return makeApiRequest($url, $access_token, 'POST', $body);
 }
 
-// Process checkout if form is submitted
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Retrieve form data
     $payment_method = $_POST['payment_method'];
     $amount = floatval($_POST['amount']);
     $order_info = [
@@ -105,44 +103,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         "phone" => $_POST['phone'],
         "total_price" => $amount,
         "shipping_address" => $_POST['address1'],
-        "payment_method" => strtoupper($payment_method) // VNPAY, PAYPAL, MOMO, or COD
+        "payment_method" => strtoupper($payment_method)
     ];
     
-    // Retrieve cart items from session
     $carts = $_SESSION['cart_items'] ?? [];
     $cart_ids = array_column($carts, 'id');
 
-    // Create order data
     $order_data = [
         "order_info" => $order_info,
         "carts" => $cart_ids
     ];
 
-    // Save order via API
     $order_response = saveOrder($api_base_url, $access_token, $order_data);
-    
-    if ($order_response['success'] && isset($order_response['data']['order_id'])) {
-        $order_id = $order_response['data']['order_id'];
 
-        if (in_array($payment_method, ['vnpay', 'paypal', 'momo'])) {
-            // Call backend API to get payment URL
-            $payment_response = getPaymentUrl($api_base_url, $access_token, $payment_method, $order_id, $amount);
-            
-            if ($payment_response['success'] && isset($payment_response['data']['url'])) {
-                $payment_url = $payment_response['data']['url'];
-                header("Location: $payment_url");
-                exit();
-            } else {
-                $error_message = $payment_response['message'] ?? "Failed to generate payment URL for $payment_method";
-            }
-        } else if ($payment_method === 'cod') {
-            // Redirect to order confirmation page for COD
-            header("Location: /order_confirmation?order_id=$order_id");
-            exit();
-        }
-    } else {
-        $error_message = $order_response['message'] ?? "Failed to create order";
+    echo '<script>console.log(' . json_encode($order_response) . ');</script>';
+
+    if ($order_response['success'] && isset($order_response['data']['payment_url'])) {
+        $payment_url = $order_response['data']['payment_url'];
+        header("Location: $payment_url");
+        exit();
     }
+    else
+        $error_message = $payment_response['message'] ?? "Failed to generate payment URL for $payment_method";
 }
 
 // Fetch cart and book details
