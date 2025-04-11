@@ -25,28 +25,41 @@ class OrderController {
         $orders = $this->order->find_all_orders();
         ApiResponse::success("Lấy danh sách danh mục thành công !", 200, $orders);
     }
-    /* public function get_all_categories_pagination($query) {
+    public function get_all_orders_pagination($query) {
         $page = isset($query['page']) && is_numeric($query['page']) && $query['page'] > 0 ? (int)$query['page'] : 1;
         $limit = isset($query['limit']) && is_numeric($query['limit']) && $query['limit'] > 0 ? (int)$query['limit'] : 10;
         $offset = ($page - 1) * $limit;
+    
+        $rawCategoryIds = $query['category_id'] ?? [];
+        $validCategoryIds = is_array($rawCategoryIds) 
+            ? array_filter($rawCategoryIds, fn($id) => preg_match('/^[a-f0-9]{32}$/i', $id)) 
+            : [];
+
+        if (!empty($rawCategoryIds) && empty($validCategoryIds)) {
+            return ApiResponse::error("Tất cả category_id đều sai định dạng.", 400);
+        }
 
         $filters = [
-            'is_active' => isset($query['filters']) && is_string($query['filters']) ? $query['filters'] : null,
+            'status' => isset($query['filters']) && in_array($query['filters'], ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled']) ? $query['filters'] : null,
+            'category_ids' => $validCategoryIds,
             'search' => isset($query['search']) && is_string($query['search']) && trim($query['search']) !== '' ? trim($query['search']) : null,
         ];
-
-        $validSortOptions = ['created_at_asc', 'created_at_desc', 'updated_at_asc', 'updated_at_desc'];
-        $sort = isset($query['sort']) && in_array($query['sort'], $validSortOptions) ? $query['sort'] : 'created_at_desc';
-
-        $categories = $this->category->get_all_categories_pagination($limit, $offset, $filters, $sort);
-
-        if (empty($categories))
-            return ApiResponse::error("Không có danh mục nào !", 404);
-        else
-            ApiResponse::success("Lấy danh sách danh mục thành công !", 200, [
-                "categories" => $categories,
+    
+        // Validate sort
+        $validSortOptions = ['newest', 'oldest'];
+        $sort = isset($query['sort']) && in_array($query['sort'], $validSortOptions) ? $query['sort'] : 'newest';
+    
+        // Call model
+        $orders = $this->order->get_all_orders_pagination($limit, $offset, $filters, $sort);
+    
+        if (empty($orders)) {
+            return ApiResponse::error("Không có đơn hàng nào !", 404);
+        } else {
+            return ApiResponse::success("Lấy danh sách đơn hàng thành công !", 200, [
+                "orders" => $orders,
             ]);
-    } */
+        }
+    }
     public function get_order($params) {
         $id = $params['id'] ?? null;
         $order = null;
@@ -55,6 +68,94 @@ class OrderController {
             return ApiResponse::error("Đơn hàng không tồn tại !", 404);
 
         ApiResponse::success("Lấy đơn hàng thành công !", 200, $order);
+    }
+    public function get_all_my_orders($user_id) {
+        $orders = $this->order->find_all_orders_by_user_id($user_id);
+        if (empty($orders))
+            return ApiResponse::error("Không có đơn hàng nào !", 404);
+        ApiResponse::success("Lấy danh sách đơn hàng thành công !", 200, $orders);
+    }
+    public function get_all_my_orders_pagination($query, $userId) {
+        $page = isset($query['page']) && is_numeric($query['page']) && $query['page'] > 0 ? (int)$query['page'] : 1;
+        $limit = isset($query['limit']) && is_numeric($query['limit']) && $query['limit'] > 0 ? (int)$query['limit'] : 10;
+        $offset = ($page - 1) * $limit;
+    
+        $rawCategoryIds = $query['category_id'] ?? [];
+        $validCategoryIds = is_array($rawCategoryIds)
+            ? array_filter($rawCategoryIds, fn($id) => preg_match('/^[a-f0-9]{32}$/i', $id))
+            : [];
+    
+        if (!empty($rawCategoryIds) && empty($validCategoryIds))
+            return ApiResponse::error("Tất cả category_id đều sai định dạng.", 400);
+    
+        $allowedStatuses = ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'];
+        $statusInput = $query['status'] ?? null;
+        if (!empty($statusInput) && !in_array($statusInput, $allowedStatuses, true))
+            return ApiResponse::error("Trạng thái đơn hàng không hợp lệ: $statusInput", 400);
+    
+        $allowedPayments = ['Pending', 'Paid', 'Failed', 'Refunded'];
+        $paymentInput = $query['payment_status'] ?? null;
+        if (!empty($paymentInput) && !in_array($paymentInput, $allowedPayments, true))
+            return ApiResponse::error("Trạng thái thanh toán không hợp lệ: $paymentInput", 400);
+    
+        $filters = [
+            'status' => $statusInput,
+            'payment_status' => $paymentInput,
+            'category_ids' => $validCategoryIds,
+            'search' => isset($query['search']) && is_string($query['search']) && trim($query['search']) !== '' ? trim($query['search']) : null,
+        ];
+    
+        $sort = isset($query['sort']) && $query['sort'] === 'oldest' ? 'oldest' : 'newest';
+        $orders = $this->order->get_all_my_orders_pagination($userId, $limit, $offset, $filters, $sort);
+    
+        if (empty($orders))
+            return ApiResponse::error("Không có đơn hàng nào!", 404);
+    
+        return ApiResponse::success("Lấy danh sách đơn hàng thành công!", 200, [
+            "orders" => $orders
+        ]);
+    }
+
+    public function update_status($params) {
+        $order_id = $params['order_id'] ?? null;
+        $status = $params['status'] ?? null;
+
+        if (empty($order_id) || empty($status))
+            return ApiResponse::error("Thiếu thông tin đơn hàng hoặc trạng thái đơn hàng !", 400);
+
+        if (!$this->order->find_by_id($order_id))
+            return ApiResponse::error("Đơn hàng không tồn tại !", 404);
+
+        if (!in_array($status, ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled']))
+            return ApiResponse::error("Trạng thái không hợp lệ !", 400);
+
+        $this->order->update_status([
+            'order_id' => $order_id,
+            'status' => $status
+        ]);
+        ApiResponse::success("Cập nhật trạng thái đơn hàng thành công !", 200);
+    }
+
+    public function cancel_order($userId, $params) {
+        $order_id = $params['order_id'] ?? null;
+        if (empty($order_id))
+            return ApiResponse::error("Thiếu thông tin đơn hàng !", 400);
+        
+        $order = $this->order->find_by_id($order_id);
+        if (!$order)
+            return ApiResponse::error("Đơn hàng không tồn tại !", 404);
+        
+        if ($order['user_id'] !== $userId)
+            return ApiResponse::error("Bạn không có quyền truy cập vào đơn hàng này !", 403);
+
+        if ($order['status'] !== 'Pending')
+            return ApiResponse::error("Chỉ có thể hủy đơn hàng ở trạng thái Pending !", 400);
+
+        $this->order->update_status([
+            'order_id' => $order_id,
+            'status' => 'Cancelled'
+        ]);
+        ApiResponse::success("Hủy đơn hàng thành công !", 200);
     }
     
     // POST methods
