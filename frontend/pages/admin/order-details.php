@@ -144,9 +144,6 @@ $error_message = !$response['success'] ? $response['message'] : ($_GET['error'] 
             </div>
         </div>
 
-        <div class="alert alert-info">
-            Product details are not available in the current API response. Contact the backend team to include 'order_details' or provide a separate endpoint.
-        </div>
     <?php endif; ?>
 
     <div class="mt-3">

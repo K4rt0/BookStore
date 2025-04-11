@@ -6,7 +6,7 @@ $layout = 'admin';
 ob_start();
 
 // Load environment variables
-$base_url = $_ENV['API_BASE_URL']; // Fallback if env not loaded
+$base_url = $_ENV['API_BASE_URL'] ?? 'http://localhost/api/'; // Fallback if env not loaded
 error_log("Base URL: $base_url");
 
 // Define session variables
@@ -35,7 +35,6 @@ $search = $_GET['search'] ?? '';
 
 // Function to call API with error handling
 function fetch_orders($base_url, $page, $limit, $filters, $sort, $search, $access_token) {
-    // Adjust this endpoint if needed (e.g., change 'get-all-orders-pagination' to 'get-all-orders')
     $api_url = $base_url . "/order?action=get-all-orders-pagination&page=$page&limit=$limit" .
                ($filters ? "&filters=" . urlencode($filters) : "") .
                "&sort=" . urlencode($sort) .
@@ -70,7 +69,7 @@ function fetch_orders($base_url, $page, $limit, $filters, $sort, $search, $acces
     if ($http_code === 404) {
         return [
             'success' => false,
-            'message' => "API endpoint not found (404). Check if '$api_url' is correct.",
+            'message' => "Không có đơn hàng nào trong danh sách.",
             'orders' => [],
             'total' => 0
         ];
@@ -79,7 +78,7 @@ function fetch_orders($base_url, $page, $limit, $filters, $sort, $search, $acces
     if ($http_code !== 200 || !isset($orders_data['success']) || !$orders_data['success']) {
         return [
             'success' => false,
-            'message' => $orders_data['message'] ?? "Failed to fetch orders. HTTP Code: $http_code" . ($curl_error ? " - cURL Error: $curl_error" : ""),
+            'message' => $orders_data['message'] ?? "Không có đơn hàng nào trong danh sách. HTTP Code: $http_code" . ($curl_error ? " - cURL Error: $curl_error" : ""),
             'orders' => [],
             'total' => 0
         ];
@@ -140,12 +139,16 @@ error_log("Total orders: $total_orders, Limit: $limit, Page: $page, Orders retur
                     </form>
 
                     <?php if (!empty($error_message)): ?>
-                        <div class="alert alert-warning">
+                        <div class="alert alert-warning text-center">
                             <?= htmlspecialchars($error_message) ?>
                         </div>
                     <?php elseif (empty($orders)): ?>
                         <div class="alert alert-info">
                             No orders found matching your criteria.
+                        </div>
+                        <div class="alert alert-secondary mt-3">
+                            <h5>No Orders Available</h5>
+                            <p>There are currently no orders to display. Try adjusting your filters or check back later.</p>
                         </div>
                     <?php else: ?>
                         <table class="table table-bordered table-striped">
