@@ -10,17 +10,16 @@ session_start();
 $api_base_url = $_ENV['API_BASE_URL'];
 $access_token = $_SESSION['access_token'] ?? null;
 $user_id = $_SESSION['user_id'] ?? null;
-$is_admin = $_SESSION['is_admin'] ?? false; // Lấy giá trị is_admin từ session
+$is_admin = $_SESSION['is_admin'] ?? false;
 
 // Redirect to login if not authenticated
 if (empty($access_token) || empty($user_id)) {
-    header("Location: /login?redirect=order-details");
+    header("Location: /login?redirect=/admin/order-details");
     exit();
 }
 
 // Check admin role
 if (!$is_admin) {
-    // Redirect to homepage with error if user is not admin
     header("Location: /?error=" . urlencode("Access denied: Admin privileges required"));
     exit();
 }
@@ -32,61 +31,31 @@ if (empty($order_id)) {
     exit();
 }
 
-// Tạo dữ liệu mẫu (mock data) cho đơn hàng và danh sách sản phẩm từ bảng order_details
-$order = [
-    'id' => $order_id,
-    'full_name' => 'Nguyen Van A',
-    'phone' => '0901234567',
-    'total_price' => 230000.00,
-    'status' => 'Pending',
-    'shipping_address' => '123 Main Street, District 1, Ho Chi Minh City',
-    'payment_method' => 'VNPay',
-    'created_at' => '2025-04-07 10:00:00',
-    'updated_at' => '2025-04-07 10:00:00',
-    'order_details' => [ // Đổi tên key từ 'items' thành 'order_details' để phản ánh tên bảng
-        [
-            'id' => 'detail1-uuid',
-            'order_id' => $order_id,
-            'book_id' => 'book1-uuid',
-            'book_title' => 'Book Title 1',
-            'quantity' => 2,
-            'price' => 100000.00,
-            'total' => 200000.00,
-            'created_at' => '2025-04-07 10:00:00',
-            'updated_at' => '2025-04-07 10:00:00'
-        ],
-        [
-            'id' => 'detail2-uuid',
-            'order_id' => $order_id,
-            'book_id' => 'book2-uuid',
-            'book_title' => 'Book Title 2',
-            'quantity' => 1,
-            'price' => 30000.00,
-            'total' => 30000.00,
-            'created_at' => '2025-04-07 10:00:00',
-            'updated_at' => '2025-04-07 10:00:00'
-        ]
-    ]
-];
-
-// Nếu bạn muốn gọi API, hãy bỏ comment đoạn code dưới đây và xóa mock data ở trên
-/*
-function call_api($url) {
+// Function to call API with error handling
+function call_api($url, $access_token, $method = 'GET') {
     $curl = curl_init();
     curl_setopt_array($curl, [
         CURLOPT_URL => $url,
         CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_HTTPGET => true,
+        CURLOPT_CUSTOMREQUEST => $method,
         CURLOPT_TIMEOUT => 30,
         CURLOPT_HTTPHEADER => [
             'Content-Type: application/json',
-            'Authorization: ' . 'Bearer ' . ($_SESSION['access_token'] ?? ''),
+            'Authorization: Bearer ' . $access_token,
         ],
     ]);
 
     $response = curl_exec($curl);
     $http_code = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+    $curl_error = curl_error($curl);
     curl_close($curl);
+
+    error_log("API Request URL: $url");
+    error_log("HTTP Code: $http_code");
+    error_log("Raw Response: " . ($response ?: 'No response'));
+    if ($curl_error) {
+        error_log("cURL Error: $curl_error");
+    }
 
     $data = json_decode($response, true);
 
@@ -96,20 +65,19 @@ function call_api($url) {
         exit;
     }
 
-    return $data;
+    return [
+        'success' => $http_code === 200 && (isset($data['success']) && $data['success'] || $response === 'Success'),
+        'data' => $data['data'] ?? [],
+        'message' => $data['message'] ?? "Failed to fetch data. HTTP Code: $http_code" . ($curl_error ? " - cURL Error: $curl_error" : ""),
+        'http_code' => $http_code
+    ];
 }
 
-$api_url = $api_base_url . "order?action=get-order-details&id=" . urlencode($order_id);
-$response = call_api($api_url);
-$order = ($response && $response['success']) ? ($response['data'] ?? []) : [];
-$error_message = !$response || !$response['success'] ? ($response['message'] ?? 'Failed to fetch order details.') : '';
-*/
-
-// Check for error messages from redirect
-$error_message = $_GET['error'] ?? '';
-if (empty($order)) {
-    $error_message = 'Order not found.';
-}
+// Fetch order details from API
+$api_url = $api_base_url . "/order?action=get-order&id=" . urlencode($order_id);
+$response = call_api($api_url, $access_token);
+$order = $response['success'] ? $response['data'] : [];
+$error_message = !$response['success'] ? $response['message'] : ($_GET['error'] ?? '');
 
 ?>
 
@@ -123,14 +91,14 @@ if (empty($order)) {
     <?php if (!empty($order)): ?>
         <div class="card mb-4">
             <div class="card-header">
-                <h4>Order #<?= htmlspecialchars($order['id']) ?></h4>
+                <h4>#<?= $order['id'] ?></h4>
             </div>
             <div class="card-body">
                 <div class="row">
                     <div class="col-md-6">
                         <p><strong>Name:</strong> <?= htmlspecialchars($order['full_name']) ?></p>
                         <p><strong>Phone:</strong> <?= htmlspecialchars($order['phone']) ?></p>
-                        <p><strong>Total Price:</strong> <?= number_format($order['total_price'], 0, ',', '.') ?> VND</p>
+                        <p><strong>Total Price:</strong> <?= number_format((float)$order['total_price'], 0, ',', '.') ?> VND</p>
                         <p><strong>Status:</strong> 
                             <span class="badge <?= $order['status'] === 'Delivered' ? 'bg-success' : ($order['status'] === 'Cancelled' ? 'bg-danger' : 'bg-warning') ?>">
                                 <?= htmlspecialchars($order['status']) ?>
@@ -139,9 +107,9 @@ if (empty($order)) {
                     </div>
                     <div class="col-md-6">
                         <p><strong>Shipping Address:</strong> <?= htmlspecialchars($order['shipping_address']) ?></p>
-                        <p><strong>Payment Method:</strong> <?= htmlspecialchars($order['payment_method']) ?></p>
-                        <p><strong>Created At:</strong> <?= htmlspecialchars($order['created_at']) ?></p>
-                        <p><strong>Updated At:</strong> <?= htmlspecialchars($order['updated_at']) ?></p>
+                        <p><strong>Payment Method:</strong> <?= htmlspecialchars($order['payment_method'] ?? 'N/A') ?></p>
+                        <p><strong>Created At:</strong> <?= htmlspecialchars(date('d/m/Y H:i', strtotime($order['created_at']))) ?></p>
+                        <p><strong>Updated At:</strong> <?= htmlspecialchars(date('d/m/Y H:i', strtotime($order['updated_at']))) ?></p>
                     </div>
                 </div>
 
@@ -151,23 +119,23 @@ if (empty($order)) {
                     <div class="d-flex gap-2 flex-wrap">
                         <?php if (strtolower($order['status']) === 'pending'): ?>
                             <button type="button" class="btn btn-sm btn-primary toggle-order-status" 
-                                    data-order-id="<?= htmlspecialchars($order['id']) ?>" data-status="processing">
+                                    data-order-id="<?= htmlspecialchars($order['id']) ?>" data-status="Processing">
                                 Process
                             </button>
                         <?php elseif (strtolower($order['status']) === 'processing'): ?>
                             <button type="button" class="btn btn-sm btn-info toggle-order-status" 
-                                    data-order-id="<?= htmlspecialchars($order['id']) ?>" data-status="shipped">
+                                    data-order-id="<?= htmlspecialchars($order['id']) ?>" data-status="Shipped">
                                 Ship
                             </button>
                         <?php elseif (strtolower($order['status']) === 'shipped'): ?>
                             <button type="button" class="btn btn-sm btn-success toggle-order-status" 
-                                    data-order-id="<?= htmlspecialchars($order['id']) ?>" data-status="delivered">
+                                    data-order-id="<?= htmlspecialchars($order['id']) ?>" data-status="Delivered">
                                 Deliver
                             </button>
                         <?php endif; ?>
                         <?php if (strtolower($order['status']) !== 'delivered' && strtolower($order['status']) !== 'cancelled'): ?>
                             <button type="button" class="btn btn-sm btn-danger toggle-order-status" 
-                                    data-order-id="<?= htmlspecialchars($order['id']) ?>" data-status="cancelled">
+                                    data-order-id="<?= htmlspecialchars($order['id']) ?>" data-status="Cancelled">
                                 Cancel
                             </button>
                         <?php endif; ?>
@@ -176,41 +144,8 @@ if (empty($order)) {
             </div>
         </div>
 
-        <!-- Order Details (Products in the Order) -->
-        <div class="card">
-            <div class="card-header">
-                <h4>Order Products</h4>
-            </div>
-            <div class="card-body">
-                <table class="table table-bordered table-striped">
-                    <thead>
-                        <tr>
-                            <th>Book Title</th>
-                            <th>Quantity</th>
-                            <th>Price (VND)</th>
-                            <th>Total (VND)</th>
-                            <th>Created At</th>
-                            <th>Updated At</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php if (!empty($order['order_details'])): ?>
-                            <?php foreach ($order['order_details'] as $detail): ?>
-                                <tr>
-                                    <td><?= htmlspecialchars($detail['book_title']) ?></td>
-                                    <td><?= htmlspecialchars($detail['quantity']) ?></td>
-                                    <td><?= number_format($detail['price'], 0, ',', '.') ?></td>
-                                    <td><?= number_format($detail['total'], 0, ',', '.') ?></td>
-                                    <td><?= htmlspecialchars($detail['created_at']) ?></td>
-                                    <td><?= htmlspecialchars($detail['updated_at']) ?></td>
-                                </tr>
-                            <?php endforeach; ?>
-                        <?php else: ?>
-                            <tr><td colspan="6" class="text-center">No products found in this order.</td></tr>
-                        <?php endif; ?>
-                    </tbody>
-                </table>
-            </div>
+        <div class="alert alert-info">
+            Product details are not available in the current API response. Contact the backend team to include 'order_details' or provide a separate endpoint.
         </div>
     <?php endif; ?>
 
@@ -231,29 +166,44 @@ document.addEventListener('DOMContentLoaded', function () {
             btn.textContent = 'Processing...';
 
             const confirmMsg = `Are you sure you want to set this order to ${newStatus}?`;
-
             if (!confirm(confirmMsg)) {
                 btn.disabled = false;
                 btn.textContent = originalText;
                 return;
             }
 
-            const apiUrl = `<?= $api_base_url ?>order?action=update-status&id=${encodeURIComponent(orderId)}&status=${newStatus}`;
+            const apiUrl = `<?= $api_base_url ?>/order?action=update-status&order_id=${encodeURIComponent(orderId)}&status=${newStatus}`;
+            console.log('PATCH URL:', apiUrl);
 
             try {
                 const response = await fetch(apiUrl, {
                     method: 'PATCH',
                     headers: {
                         'Authorization': 'Bearer <?= $_SESSION['access_token'] ?? '' ?>',
-                        'Content-Type: 'application/json'
+                        'Content-Type': 'application/json'
                     },
                 });
+
+                const rawResponse = await response.text();
+                console.log('Raw Response:', rawResponse);
 
                 if (!response.ok) {
                     throw new Error(`HTTP error! Status: ${response.status} - ${response.statusText}`);
                 }
 
-                const data = await response.json();
+                let data;
+                try {
+                    data = JSON.parse(rawResponse);
+                } catch (e) {
+                    // Handle non-JSON response (e.g., plain text "Success")
+                    if (rawResponse.trim().toLowerCase() === 'success') {
+                        data = { success: true, message: 'Status updated successfully' };
+                    } else {
+                        throw new Error('Invalid JSON response: ' + rawResponse);
+                    }
+                }
+
+                console.log('Parsed Response data:', data);
                 if (data.success) {
                     alert(`Order has been updated to ${newStatus} successfully.`);
                     location.reload();
@@ -261,6 +211,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     throw new Error(data.message || 'Unknown error');
                 }
             } catch (err) {
+                console.error('Fetch error:', err);
                 alert('Failed to update order status: ' + err.message);
             } finally {
                 btn.disabled = false;

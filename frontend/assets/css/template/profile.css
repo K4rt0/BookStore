@@ -210,3 +210,25 @@
         margin-bottom: 20px;
     }
 }
+.order-item {
+    background: #f8f9fa;
+    transition: all 0.3s ease;
+}
+
+.order-item:hover {
+    background: #e9ecef;
+}
+
+.badge {
+    padding: 5px 10px;
+    font-size: 0.9em;
+}
+
+.pagination .page-link {
+    color: #007bff;
+}
+
+.pagination .page-item.active .page-link {
+    background-color: #007bff;
+    border-color: #007bff;
+}
