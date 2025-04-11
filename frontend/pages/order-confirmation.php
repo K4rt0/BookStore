@@ -2,16 +2,19 @@
 session_start();
 require_once __DIR__ . '/../includes/env-loader.php';
 
-// Lấy tham số từ URL callback (VNPay/MoMo)
-$payment_data = $_GET;
-$order_id = $payment_data['order_id'] ?? '';
-$api_base_url = $_ENV['API_BASE_URL'];
-$api_endpoint = $api_base_url . '/api/verify-payment';
-
 $page_title = "Book Shop - Order Status";
 
 ob_start();
+
+// Lấy tham số từ URL
+$status = $_GET['status'] ?? '';
+$message = $_GET['message'] ?? '';
+$order_id = $_GET['order_id'] ?? '';
+$api_base_url = $_ENV['API_BASE_URL'];
+$api_endpoint = $api_base_url . '/api/verify-payment';
+$payment_data = $_GET; // For payment gateway callbacks
 ?>
+
 <style>
     @keyframes fadeInUp {
         from { opacity: 0; transform: translateY(20px); }
@@ -72,62 +75,71 @@ ob_start();
 </div>
 
 <script>
-// Gửi yêu cầu AJAX để xác minh thanh toán
 document.addEventListener('DOMContentLoaded', function() {
+    const status = '<?php echo htmlspecialchars($status); ?>';
+    const message = '<?php echo htmlspecialchars($message); ?>';
+    const orderId = '<?php echo htmlspecialchars($order_id); ?>';
     const paymentData = <?php echo json_encode($payment_data); ?>;
     const apiEndpoint = '<?php echo $api_endpoint; ?>';
 
-    fetch(apiEndpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            order_id: '<?php echo $order_id; ?>',
-            payment_data: paymentData
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        // Ẩn loading state
+    // Hàm hiển thị kết quả
+    function showResult(isSuccess, title, messageText, orderId) {
         document.getElementById('loading-state').style.display = 'none';
-        // Hiện result state
         document.getElementById('result-state').style.display = 'block';
 
-        const isSuccess = data.status === 'success';
-        const message = data.message || (isSuccess ? 'Thank you for shopping with us!' : 'Oops! Something went wrong.');
-
-        // Cập nhật giao diện dựa trên trạng thái
         document.getElementById('bg-circle').style.background = isSuccess ? 'rgba(40, 167, 69, 0.1)' : 'rgba(220, 53, 69, 0.1)';
         document.getElementById('result-icon-container').innerHTML = `
             <i class="fas ${isSuccess ? 'fa-check-circle text-success' : 'fa-times-circle text-danger'} pulse-icon" style="font-size: 5.5rem;"></i>
         `;
-        document.getElementById('result-title').innerText = isSuccess ? 'Order Successful!' : 'Order Failed';
+        document.getElementById('result-title').innerText = title;
         document.getElementById('result-title').classList.add(isSuccess ? 'text-success' : 'text-danger');
         document.getElementById('result-message').innerHTML = `
-            ${message} Order #${paymentData.order_id || 'N/A'} ${isSuccess ? 'is confirmed and will be on its way soon.' : 'could not be processed.'}
+            ${messageText} ${orderId ? 'Order #' + orderId + ' ' : ''}${isSuccess ? 'is confirmed.' : 'could not be processed.'}
         `;
         document.getElementById('result-buttons').innerHTML = isSuccess ? `
-            <a href="/shop" class="btn btn-primary px-5 py-2 btn-hover" style="border-radius: 30px; font-weight: 600; background: linear-gradient(90deg, #007bff, #00b4ff); transition: all 0.3s ease;">Continue Shopping</a>
-            <a href="/orders" class="btn btn-outline-success px-5 py-2 btn-hover" style="border-radius: 30px; font-weight: 600; border-width: 2px; transition: all 0.3s ease;">View Orders</a>
+            <a href="/category" class="btn btn-primary px-5 py-4 btn-hover" style="border-radius: 30px; font-weight: 600; background: linear-gradient(90deg, #007bff, #00b4ff); transition: all 0.3s ease;">Continue Shopping</a>
+            <a href="/orders" class="btn btn-outline-success px-5 py-4 btn-hover" style="border-radius: 30px; font-weight: 600; border-width: 2px; transition: all 0.3s ease;">View Orders</a>
         ` : `
             <a href="/cart" class="btn btn-primary px-5 py-4 btn-hover" style="border-radius: 30px; font-weight: 600; background: linear-gradient(90deg, #007bff, #00b4ff); transition: all 0.3s ease;">Return to Cart</a>
             <a href="/support" class="btn btn-outline-danger px-5 py-4 btn-hover" style="border-radius: 30px; font-weight: 600; border-width: 2px; transition: all 0.3s ease;">Contact Support</a>
         `;
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        document.getElementById('loading-state').style.display = 'none';
-        document.getElementById('result-state').style.display = 'block';
-        document.getElementById('result-icon-container').innerHTML = `<i class="fas fa-times-circle text-danger pulse-icon" style="font-size: 5.5rem;"></i>`;
-        document.getElementById('result-title').innerText = 'Error';
-        document.getElementById('result-title').classList.add('text-danger');
-        document.getElementById('result-message').innerText = 'Unable to verify payment. Please try again or contact support.';
-        document.getElementById('result-buttons').innerHTML = `
-            <a href="/cart" class="btn btn-primary px-5 py-4 btn-hover" style="border-radius: 30px; font-weight: 600; background: linear-gradient(90deg, #007bff, #00b4ff); transition: all 0.3s ease;">Return to Cart</a>
-            <a href="/support" class="btn btn-outline-danger px-5 py-4 btn-hover" style="border-radius: 30px; font-weight: 600; border-width: 2px; transition: all 0.3s ease;">Contact Support</a>
-        `;
-    });
+    }
+
+    // Kiểm tra nếu là COD hoặc trạng thái từ checkout
+    if (status) {
+        const isSuccess = status.toLowerCase() === 'success';
+        const title = isSuccess ? 'Order Successful!' : 'Order Failed';
+        const messageText = message || (isSuccess ? 'Thank you for shopping with us!' : 'Oops! Something went wrong.');
+        showResult(isSuccess, title, messageText, orderId);
+    }
+    // Kiểm tra nếu là callback từ cổng thanh toán
+    else if (orderId) {
+        fetch(apiEndpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                order_id: orderId,
+                payment_data: paymentData
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            const isSuccess = data.status === 'success';
+            const messageText = data.message || (isSuccess ? 'Thank you for shopping with us!' : 'Oops! Something went wrong.');
+            showResult(isSuccess, isSuccess ? 'Order Successful!' : 'Order Failed', messageText, orderId);
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showResult(false, 'Error', 'Unable to verify payment. Please try again or contact support.', orderId);
+        });
+    }
+    // Trường hợp không có status hoặc order_id
+    else {
+        showResult(false, 'Error', 'Invalid order information. Please try again or contact support.', '');
+    }
 });
 </script>
+
 <?php
 $content = ob_get_clean();
 include __DIR__ . '/../layouts/main-layout.php';
