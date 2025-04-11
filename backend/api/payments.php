@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../controllers/PaymentController.php';
+require_once __DIR__ . '/../helpers/AuthMiddleware.php';
 
 $controller = new PaymentController();
 $flag = false;
@@ -25,15 +26,15 @@ switch ($_SERVER['REQUEST_METHOD']) {
             $controller->update();
         }
         else $flag = true;
-        break;
+        break; */
 
     case 'PATCH':
-        if ($_GET['action'] == 'update-active') {
+        if ($_GET['action'] == 'update') {
             AuthMiddleware::requireAuth(true);
-            $controller->category_active($_GET);
+            $controller->update_payment();
         }
         else $flag = true;
-        break; */
+        break;
         
     default:
         $flag = true;

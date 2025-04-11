@@ -5,15 +5,15 @@ $controller = new OrderController();
 $flag = false;
 
 switch ($_SERVER['REQUEST_METHOD']) {
-    /* case 'GET':
-        if ($_GET['action'] == 'get')
+    case 'GET':
+        if ($_GET['action'] == 'get-order')
         {
-            header('Location: /bookstore/backend/api/orders?action=gets');
-            exit();
+            $data = AuthMiddleware::requireAuth();
+            $controller->get_order($_GET);
         }
         else $flag = true;
         break;
- */
+
     case 'POST':
         if ($_GET['action'] == 'create') {
             $data = AuthMiddleware::requireAuth();
