@@ -247,7 +247,7 @@ if (empty($books)) {
                                                                 } elseif ($i - $rating_value <= 0.5 && $i - $rating_value > 0) {
                                                                     echo '<i class="fas fa-star-half-alt"></i>';
                                                                 } else {
-                                                                    echo '<i class="far fa-star"></i>';
+                                                                    echo '<i class="fas fa-star"></i>';
                                                                 }
                                                             }
                                                             ?>
@@ -372,7 +372,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         } else if (i - rating <= 0.5 && i - rating > 0) {
                             stars += '<i class="fas fa-star-half-alt"></i>';
                         } else {
-                            stars += '<i class="far fa-star"></i>';
+                            stars += '<i class="fas fa-star"></i>';
                         }
                     }
 
