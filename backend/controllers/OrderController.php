@@ -63,11 +63,17 @@ class OrderController {
     public function get_order($params) {
         $id = $params['id'] ?? null;
         $order = null;
-
+    
         if (empty($id) || !($order = $this->order->find_by_id($id)))
             return ApiResponse::error("Đơn hàng không tồn tại !", 404);
+    
+        $order_details = $this->order->get_order_details($id);
+        // $reviews = $this->order->get_order_reviews($id);
 
-        ApiResponse::success("Lấy đơn hàng thành công !", 200, $order);
+        $data['order'] = $order;
+        $data['order_details'] = $order_details;
+        // $data['reviews'] = $reviews;
+        ApiResponse::success("Lấy đơn hàng thành công !", 200, $data);
     }
     public function get_all_my_orders($user_id) {
         $orders = $this->order->find_all_orders_by_user_id($user_id);
@@ -114,48 +120,6 @@ class OrderController {
         return ApiResponse::success("Lấy danh sách đơn hàng thành công!", 200, [
             "orders" => $orders
         ]);
-    }
-
-    public function update_status($params) {
-        $order_id = $params['order_id'] ?? null;
-        $status = $params['status'] ?? null;
-
-        if (empty($order_id) || empty($status))
-            return ApiResponse::error("Thiếu thông tin đơn hàng hoặc trạng thái đơn hàng !", 400);
-
-        if (!$this->order->find_by_id($order_id))
-            return ApiResponse::error("Đơn hàng không tồn tại !", 404);
-
-        if (!in_array($status, ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled']))
-            return ApiResponse::error("Trạng thái không hợp lệ !", 400);
-
-        $this->order->update_status([
-            'order_id' => $order_id,
-            'status' => $status
-        ]);
-        ApiResponse::success("Cập nhật trạng thái đơn hàng thành công !", 200);
-    }
-
-    public function cancel_order($userId, $params) {
-        $order_id = $params['order_id'] ?? null;
-        if (empty($order_id))
-            return ApiResponse::error("Thiếu thông tin đơn hàng !", 400);
-        
-        $order = $this->order->find_by_id($order_id);
-        if (!$order)
-            return ApiResponse::error("Đơn hàng không tồn tại !", 404);
-        
-        if ($order['user_id'] !== $userId)
-            return ApiResponse::error("Bạn không có quyền truy cập vào đơn hàng này !", 403);
-
-        if ($order['status'] !== 'Pending')
-            return ApiResponse::error("Chỉ có thể hủy đơn hàng ở trạng thái Pending !", 400);
-
-        $this->order->update_status([
-            'order_id' => $order_id,
-            'status' => 'Cancelled'
-        ]);
-        ApiResponse::success("Hủy đơn hàng thành công !", 200);
     }
     
     // POST methods
@@ -265,17 +229,44 @@ class OrderController {
     // PUT methods
 
     // PATCH methods
-    /* public function category_active($params) {
-        $id = $params['id'] ?? null;
-        $is_actidve = $params['is_active'] ?? null;
+    public function update_status($params) {
+        $order_id = $params['order_id'] ?? null;
+        $status = $params['status'] ?? null;
 
-        if (empty($id) || !$this->category->find_by_id($id))
-            return ApiResponse::error("Danh mục không tồn tại !", 404);
-        if (!in_array($is_active, [0, 1]))
+        if (empty($order_id) || empty($status))
+            return ApiResponse::error("Thiếu thông tin đơn hàng hoặc trạng thái đơn hàng !", 400);
+
+        if (!$this->order->find_by_id($order_id))
+            return ApiResponse::error("Đơn hàng không tồn tại !", 404);
+
+        if (!in_array($status, ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled']))
             return ApiResponse::error("Trạng thái không hợp lệ !", 400);
 
-        $this->category->update($id, ['is_active' => $is_active]);
+        $this->order->update_status([
+            'order_id' => $order_id,
+            'status' => $status
+        ]);
+        ApiResponse::success("Cập nhật trạng thái đơn hàng thành công !", 200);
+    }
+    public function cancel_order($userId, $params) {
+        $order_id = $params['order_id'] ?? null;
+        if (empty($order_id))
+            return ApiResponse::error("Thiếu thông tin đơn hàng !", 400);
+        
+        $order = $this->order->find_by_id($order_id);
+        if (!$order)
+            return ApiResponse::error("Đơn hàng không tồn tại !", 404);
+        
+        if ($order['user_id'] !== $userId)
+            return ApiResponse::error("Bạn không có quyền truy cập vào đơn hàng này !", 403);
 
-        ApiResponse::success("Cập nhật trạng thái danh mục thành công !", 200);
-    } */
+        if ($order['status'] !== 'Pending')
+            return ApiResponse::error("Chỉ có thể hủy đơn hàng ở trạng thái Pending !", 400);
+
+        $this->order->update_status([
+            'order_id' => $order_id,
+            'status' => 'Cancelled'
+        ]);
+        ApiResponse::success("Hủy đơn hàng thành công !", 200);
+    }
 }

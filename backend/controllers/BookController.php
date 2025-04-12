@@ -1,17 +1,20 @@
 <?php
 require_once __DIR__ . '/../models/Book.php';
 require_once __DIR__ . '/../models/Category.php';
+require_once __DIR__ . '/../models/Review.php';
 require_once __DIR__ . '/../helpers/ImgurService.php';
 
 class BookController {
     private $book;
     private $imgur;
     private $category;
+    private $review;
 
     public function __construct() {
         $this->book = new Book();
         $this->category = new Category();
         $this->imgur = new ImgurService();
+        $this->review = new Review();
     }
 
     // GET methods
@@ -22,8 +25,13 @@ class BookController {
         $book = $this->book->find_by_id($id);
         if (!$book) return ApiResponse::error("Sách không tồn tại !", 404);
         if ($book['is_deleted'] == 1) return ApiResponse::error("Sách không tồn tại !", 404);
+
+        $reviews = $this->review->get_reviews_by_book($id);
     
-        ApiResponse::success("Lấy thông tin sách thành công !", 200, $book);
+        ApiResponse::success("Lấy thông tin sách thành công !", 200, [
+            'book' => $book,
+            'reviews' => $reviews
+        ]);
     }
     public function get_all_books() {
         $books = $this->book->get_all_books();
@@ -81,16 +89,16 @@ class BookController {
             'author' => $_POST['author'] ?? '',
             'publisher' => $_POST['publisher'] ?? '',
             'publication_date' => $_POST['publication_date'] ?? '',
-            'price' => $_POST['price'] ?? 0,
-            'stock_quantity' => $_POST['stock_quantity'] ?? 0,
+            'price' => isset($_POST['price']) && is_numeric($_POST['price']) ? (float)$_POST['price'] : 0,
+            'stock_quantity' => isset($_POST['stock_quantity']) && is_numeric($_POST['stock_quantity']) ? (int)$_POST['stock_quantity'] : 0,
             'description' => $_POST['description'] ?? '',
             'short_description' => $_POST['short_description'] ?? '',
             'category_id' => $_POST['category_id'] ?? null,
-            'is_deleted' => isset($_POST['is_deleted']) ? 1 : 0,
-            'is_featured' => isset($_POST['is_featured']) ? 1 : 0,
-            'is_new' => isset($_POST['is_new']) ? 1 : 0,
-            'is_best_seller' => isset($_POST['is_best_seller']) ? 1 : 0,
-            'is_discounted' => isset($_POST['is_discounted']) ? 1 : 0
+            'is_deleted' => isset($_POST['is_deleted']) ? (int)$_POST['is_deleted'] : 0,
+            'is_featured' => isset($_POST['is_featured']) ? (int)$_POST['is_featured'] : 0,
+            'is_new' => isset($_POST['is_new']) ? (int)$_POST['is_new'] : 0,
+            'is_best_seller' => isset($_POST['is_best_seller']) ? (int)$_POST['is_best_seller'] : 0,
+            'is_discounted' => isset($_POST['is_discounted']) ? (int)$_POST['is_discounted'] : 0
         ];
 
         if (empty($data['title']) || strlen($data['title']) < 3)
