@@ -117,4 +117,17 @@ class Book {
     
         return $stmt->execute() ? $stmt->fetchAll(PDO::FETCH_ASSOC) : false;
     }
+
+    public function update_book_rating($bookId, $newRating) {
+        $stmt = $this->conn->prepare('SELECT rating, rating_count FROM books WHERE id = ?');
+        $stmt->execute([$bookId]);
+        $book = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        $newRatingCount = $book['rating_count'] + 1;
+        $newTotalRating = $book['rating'] * $book['rating_count'] + $newRating;
+        $newAverageRating = $newTotalRating / $newRatingCount;
+
+        $stmt = $this->conn->prepare('UPDATE books SET rating = ?, rating_count = ? WHERE id = ?');
+        $stmt->execute([$newAverageRating, $newRatingCount, $bookId]);
+    }
 }

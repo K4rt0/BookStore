@@ -16,11 +16,34 @@ class Order {
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
 
+    public function get_order_details($order_id) {
+        $stmt = $this->conn->prepare("
+            SELECT * 
+            FROM order_details
+            WHERE order_id = :order_id
+        ");
+        $stmt->execute(['order_id' => $order_id]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
     public function find_all_orders() {
         $stmt = $this->conn->prepare("SELECT * FROM {$this->table} ORDER BY created_at DESC");
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
+/* 
+    public function get_order_reviews($order_id) {
+        $stmt = $this->conn->prepare("
+            SELECT od.*, r.*, b.title AS book_title, u.full_name AS user_name
+            FROM order_details od
+            LEFT JOIN reviews r ON od.book_id = r.book_id AND od.user_id = r.user_id
+            LEFT JOIN books b ON od.book_id = b.id
+            LEFT JOIN users u ON r.user_id = u.id
+            WHERE od.order_id = :order_id
+        ");
+        $stmt->execute(['order_id' => $order_id]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } */
 
     public function create($data) {
         $stmt = $this->conn->prepare("INSERT INTO {$this->table} (id, user_id, total_price, full_name, phone, status, shipping_address) VALUES (:id, :user_id, :total_price, :full_name, :phone, :status, :shipping_address)");
@@ -171,5 +194,10 @@ class Order {
             $this->conn->rollBack();
             return false;
         }
+    }
+
+    public function update_is_commented($orderId) {
+        $stmt = $this->conn->prepare('UPDATE orders SET is_commented = TRUE WHERE id = ?');
+        $stmt->execute([$orderId]);
     }
 }
