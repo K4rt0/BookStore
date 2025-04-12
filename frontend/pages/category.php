@@ -36,10 +36,10 @@ $is_new = isset($_GET['is_new']) ? 1 : null;
 $is_best_seller = isset($_GET['is_best_seller']) ? 1 : null;
 $is_discounted = isset($_GET['is_discounted']) ? 1 : null;
 $sort = $_GET['sort'] ?? 'all';
-$page = $_GET['page'] ?? 1;
+$page = max(1, (int)($_GET['page'] ?? 1)); // Ensure page >= 1
 $limit = $_GET['limit'] ?? 6;
 
-// Build API URL for books (for initial load)
+// Build API URL for books
 $api_url = $base_url . "/book?action=get-all-books-pagination";
 $api_url .= "&page=" . urlencode($page);
 $api_url .= "&limit=" . urlencode($limit);
@@ -69,7 +69,7 @@ if ($sort !== 'all') {
     $api_url .= "&sort=" . urlencode($sort);
 }
 
-// Call API to fetch filtered books (for initial load)
+// Call API to fetch filtered books
 $ch = curl_init($api_url);
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
@@ -83,9 +83,10 @@ if ($http_code !== 200 || empty($response)) {
 }
 
 $books_data = json_decode($response, true);
+
+// Extract books
 $books = $books_data['success'] && isset($books_data['data']['books']) ? $books_data['data']['books'] : [];
 
-// Log if no books found
 if (empty($books)) {
     error_log("No books found: URL: $api_url, Response: " . json_encode($books_data));
 }
@@ -246,7 +247,7 @@ if (empty($books)) {
                                                                 } elseif ($i - $rating_value <= 0.5 && $i - $rating_value > 0) {
                                                                     echo '<i class="fas fa-star-half-alt"></i>';
                                                                 } else {
-                                                                    echo '<i class="fas fa-star"></i>';
+                                                                    echo '<i class="far fa-star"></i>';
                                                                 }
                                                             }
                                                             ?>
@@ -268,47 +269,17 @@ if (empty($books)) {
 
                 <!-- Pagination -->
                 <div id="paginationArea">
-                    <?php if (isset($books_data['data']['pagination']) && !empty($books_data['data']['pagination']['total_pages']) && $books_data['data']['pagination']['total_pages'] > 1): ?>
-                        <div class="row">
-                            <div class="col-xl-12">
-                                <div class="pagination-area mt-15 d-flex justify-content-center">
-                                    <nav aria-label="Page navigation">
-                                        <ul class="pagination">
-                                            <?php if ($books_data['data']['pagination']['current_page'] > 1): ?>
-                                                <li class="page-item">
-                                                    <a class="page-link" href="#" onclick="applyFilters(<?= $books_data['data']['pagination']['current_page'] - 1 ?>); return false;">
-                                                        <span aria-hidden="true">«</span>
-                                                    </a>
-                                                </li>
-                                            <?php endif; ?>
-                                            <?php for ($i = 1; $i <= $books_data['data']['pagination']['total_pages']; $i++): ?>
-                                                <li class="page-item <?= $i == $books_data['data']['pagination']['current_page'] ? 'active' : '' ?>">
-                                                    <a class="page-link" href="#" onclick="applyFilters(<?= $i ?>); return false;">
-                                                        <?= $i ?>
-                                                    </a>
-                                                </li>
-                                            <?php endfor; ?>
-                                            <?php if ($books_data['data']['pagination']['current_page'] < $books_data['data']['pagination']['total_pages']): ?>
-                                                <li class="page-item">
-                                                    <a class="page-link" href="#" onclick="applyFilters(<?= $books_data['data']['pagination']['current_page'] + 1 ?>); return false;">
-                                                        <span aria-hidden="true">»</span>
-                                                    </a>
-                                                </li>
-                                            <?php endif; ?>
-                                        </ul>
-                                    </nav>
-                                </div>
+                    <div class="row">
+                        <div class="col-xl-12">
+                            <div class="pagination-area mt-15 d-flex justify-content-center">
+                                <nav aria-label="Page navigation">
+                                    <ul class="pagination" id="paginationList">
+                                        <!-- Pagination will be populated by JavaScript -->
+                                    </ul>
+                                </nav>
                             </div>
                         </div>
-                    <?php else: ?>
-                        <div class="row">
-                            <div class="col-xl-12">
-                                <div class="more-btn text-center mt-15">
-                                    <a href="#" class="border-btn border-btn2 more-btn2">Browse More</a>
-                                </div>
-                            </div>
-                        </div>
-                    <?php endif; ?>
+                    </div>
                 </div>
             </div>
         </div>
@@ -320,6 +291,7 @@ if (empty($books)) {
 document.addEventListener('DOMContentLoaded', function () {
     // Base URL for API
     const baseUrl = '<?= $base_url ?>';
+    const limit = <?= $limit ?>;
 
     // Debounce function for checkboxes
     function debounce(func, wait) {
@@ -335,18 +307,22 @@ document.addEventListener('DOMContentLoaded', function () {
         const form = document.getElementById('filterForm');
         const bookList = document.getElementById('bookList');
         const paginationArea = document.getElementById('paginationArea');
+        const paginationList = document.getElementById('paginationList');
         const sort = document.getElementById('product_sort').value;
         const categories = Array.from(form.querySelectorAll('input[name="category[]"]:checked')).map(input => input.value);
+        const search = form.querySelector('input[name="search"]').value;
         const isFeatured = form.querySelector('input[name="is_featured"]').checked ? 1 : null;
         const isNew = form.querySelector('input[name="is_new"]').checked ? 1 : null;
         const isBestSeller = form.querySelector('input[name="is_best_seller"]').checked ? 1 : null;
         const isDiscounted = form.querySelector('input[name="is_discounted"]').checked ? 1 : null;
-        const limit = 6;
 
         // Build API URL
         let apiUrl = `${baseUrl}/book?action=get-all-books-pagination&page=${page}&limit=${limit}&is_deleted=0`;
         if (categories.length > 0) {
             apiUrl += categories.map(cat => `&category[]=${encodeURIComponent(cat)}`).join('');
+        }
+        if (search) {
+            apiUrl += `&search=${encodeURIComponent(search)}`;
         }
         if (isFeatured !== null) {
             apiUrl += `&is_featured=${isFeatured}`;
@@ -363,6 +339,9 @@ document.addEventListener('DOMContentLoaded', function () {
         if (sort !== 'all') {
             apiUrl += `&sort=${encodeURIComponent(sort)}`;
         }
+
+        // Log API call for debugging
+        console.log('Fetching books:', apiUrl);
 
         // Show loading state
         bookList.classList.add('loading');
@@ -393,7 +372,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         } else if (i - rating <= 0.5 && i - rating > 0) {
                             stars += '<i class="fas fa-star-half-alt"></i>';
                         } else {
-                            stars += '<i class="fas fa-star"></i>';
+                            stars += '<i class="far fa-star"></i>';
                         }
                     }
 
@@ -436,60 +415,58 @@ document.addEventListener('DOMContentLoaded', function () {
                 });
 
                 // Update pagination
-                if (data.data.pagination && data.data.pagination.total_pages > 1) {
-                    let paginationHtml = `
-                        <div class="row">
-                            <div class="col-xl-12">
-                                <div class="pagination-area mt-15 d-flex justify-content-center">
-                                    <nav aria-label="Page navigation">
-                                        <ul class="pagination">
-                    `;
-                    if (data.data.pagination.current_page > 1) {
-                        paginationHtml += `
-                            <li class="page-item">
-                                <a class="page-link" href="#" onclick="applyFilters(${data.data.pagination.current_page - 1}); return false;">
-                                    <span aria-hidden="true">«</span>
-                                </a>
-                            </li>
-                        `;
-                    }
-                    for (let i = 1; i <= data.data.pagination.total_pages; i++) {
-                        paginationHtml += `
-                            <li class="page-item ${i === data.data.pagination.current_page ? 'active' : ''}">
-                                <a class="page-link" href="#" onclick="applyFilters(${i}); return false;">
-                                    ${i}
-                                </a>
-                            </li>
-                        `;
-                    }
-                    if (data.data.pagination.current_page < data.data.pagination.total_pages) {
-                        paginationHtml += `
-                            <li class="page-item">
-                                <a class="page-link" href="#" onclick="applyFilters(${data.data.pagination.current_page + 1}); return false;">
-                                    <span aria-hidden="true">»</span>
-                                </a>
-                            </li>
-                        `;
-                    }
+                let paginationHtml = '';
+                const hasBooks = data.data.books.length > 0;
+                const hasMoreBooks = data.data.books.length === limit; // Assume more pages if we got a full page
+                const currentPage = page;
+
+                // Previous button
+                if (currentPage > 1) {
                     paginationHtml += `
-                                        </ul>
-                                    </nav>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                    paginationArea.innerHTML = paginationHtml;
-                } else {
-                    paginationArea.innerHTML = `
-                        <div class="row">
-                            <div class="col-xl-12">
-                                <div class="more-btn text-center mt-15">
-                                    <a href="#" class="border-btn border-btn2 more-btn2">Browse More</a>
-                                </div>
-                            </div>
-                        </div>
+                        <li class="page-item">
+                            <a class="page-link" href="#" onclick="applyFilters(${currentPage - 1}); return false;">
+                                <span aria-hidden="true">«</span>
+                            </a>
+                        </li>
                     `;
                 }
+
+                // Current page (always show at least the current page)
+                paginationHtml += `
+                    <li class="page-item active">
+                        <a class="page-link" href="#" onclick="applyFilters(${currentPage}); return false;">
+                            ${currentPage}
+                        </a>
+                    </li>
+                `;
+
+                // Next button
+                if (hasMoreBooks) {
+                    paginationHtml += `
+                        <li class="page-item">
+                            <a class="page-link" href="#" onclick="applyFilters(${currentPage + 1}); return false;">
+                                <span aria-hidden="true">»</span>
+                            </a>
+                        </li>
+                    `;
+                }
+
+                paginationList.innerHTML = paginationHtml;
+
+                // Update pagination area
+                paginationArea.innerHTML = `
+                    <div class="row">
+                        <div class="col-xl-12">
+                            <div class="pagination-area mt-15 d-flex justify-content-center">
+                                <nav aria-label="Page navigation">
+                                    <ul class="pagination" id="paginationList">
+                                        ${paginationHtml}
+                                    </ul>
+                                </nav>
+                            </div>
+                        </div>
+                    </div>
+                `;
             } else {
                 bookList.innerHTML = `
                     <div class="col-12">
@@ -498,7 +475,15 @@ document.addEventListener('DOMContentLoaded', function () {
                         </div>
                     </div>
                 `;
-                paginationArea.innerHTML = '';
+                paginationArea.innerHTML = `
+                    <div class="row">
+                        <div class="col-xl-12">
+                            <div class="more-btn text-center mt-15">
+                                <a href="#" class="border-btn border-btn2 more-btn2">Browse More</a>
+                            </div>
+                        </div>
+                    </div>
+                `;
                 console.warn('No books found:', data);
             }
         })
@@ -511,7 +496,15 @@ document.addEventListener('DOMContentLoaded', function () {
                     </div>
                 </div>
             `;
-            paginationArea.innerHTML = '';
+            paginationArea.innerHTML = `
+                <div class="row">
+                    <div class="col-xl-12">
+                        <div class="more-btn text-center mt-15">
+                            <a href="#" class="border-btn border-btn2 more-btn2">Browse More</a>
+                        </div>
+                    </div>
+                </div>
+            `;
             console.error('Error fetching books:', error);
         });
     };
@@ -533,6 +526,9 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('filterForm').querySelector('input[name="search"]').value = '';
         applyFilters();
     });
+
+    // Initial load
+    applyFilters(<?= $page ?>);
 });
 </script>
 

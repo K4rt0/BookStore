@@ -19,7 +19,7 @@ if (!$category_id) {
 if (isset($_GET['action']) && $_GET['action'] === 'toggle-active') {
     $is_active = isset($_GET['is_active']) ? (int)$_GET['is_active'] : 0;
 
-    $toggle_url = $base_url . "category?action=update-active&is_active=" . $is_active . "&id=" . urlencode($category_id);
+    $toggle_url = $base_url . "/category?action=update-active&is_active=" . $is_active . "&id=" . urlencode($category_id);
 
     $headers = [
         'Authorization: Bearer ' . ($_SESSION['access_token'] ?? '')
@@ -47,7 +47,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'toggle-active') {
 }
 
 // Get category details
-$api_url = $base_url . "category?action=get-category&id=" . urlencode($category_id);
+$api_url = $base_url . "/category?action=get-category&id=" . urlencode($category_id);
 $headers = [
     'Authorization: Bearer ' . ($_SESSION['access_token'] ?? '')
 ];
@@ -76,7 +76,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         "is_active" => $is_active
     ];
 
-    $update_url = $base_url . "category?action=update";
+    $update_url = $base_url . "/category?action=update";
 
     $headers[] = 'Content-Type: application/json';
 

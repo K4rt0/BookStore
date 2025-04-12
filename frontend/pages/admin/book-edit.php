@@ -27,7 +27,7 @@ if (empty($book_id)) {
 error_log("Book ID: $book_id");
 
 // Get book details using the correct action 'get-book'
-$api_url = $base_url . "book?action=get-book&id=" . urlencode($book_id);
+$api_url = $base_url . "/book?action=get-book&id=" . urlencode($book_id);
 error_log("API URL: $api_url");
 $headers = [
     'Authorization: Bearer ' . ($_SESSION['access_token'] ?? ''),
@@ -60,7 +60,7 @@ if (!$book) {
 }
 
 // Get categories list for dropdown
-$categories_url = $base_url . "category?action=get-all-categories";
+$categories_url = $base_url . "/category?action=get-all-categories";
 $ch = curl_init($categories_url);
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 curl_setopt($ch, CURLOPT_HTTPHEADER, [
@@ -80,7 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Debug form data
     error_log("Form submission: " . json_encode($_POST));
     
-    $update_api_url = $base_url . "book?action=update";
+    $update_api_url = $base_url . "/book?action=update";
     $headers = [
         'Authorization: Bearer ' . ($_SESSION['access_token'] ?? ''),
     ];

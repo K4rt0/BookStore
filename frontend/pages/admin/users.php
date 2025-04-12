@@ -14,7 +14,7 @@ $filters = $_GET['filters'] ?? '';
 $sort = $_GET['sort'] ?? 'updated_at,desc';
 $search = $_GET['search'] ?? '';
 
-$api_url = $base_url . "user?action=get-all-users-pagination";
+$api_url = $base_url . "/user?action=get-all-users-pagination";
 $query_params = array_filter([
     'page' => $page,
     'limit' => $limit,
@@ -174,7 +174,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 return;
             }
 
-            const apiUrl = `<?= $base_url ?>user?action=update-status&id=${encodeURIComponent(userId)}&status=${newStatus}`;
+            const apiUrl = `<?= $base_url ?>/user?action=update-status&id=${encodeURIComponent(userId)}&status=${newStatus}`;
 
             try {
                 const response = await fetch(apiUrl, {

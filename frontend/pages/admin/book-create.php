@@ -10,7 +10,7 @@ $error = '';
 $success = '';
 
 // Fetch categories for the dropdown
-$category_url = $base_url . "category?action=get-all-categories";
+$category_url = $base_url . "/category?action=get-all-categories";
 $headers = [
     'Authorization: Bearer ' . ($_SESSION['access_token'] ?? '')
 ];
@@ -73,8 +73,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'price' => $price,
             'category_id' => $category_id,
             'stock_quantity' => $stock_quantity,
-            'description' => $description, // Add description to API request
-            'short_description' => $short_description, // Add short_description to API request
+            'description' => $description, 
+            'short_description' => $short_description, 
             'is_deleted' => $is_deleted,
             'is_featured' => $is_featured,
             'is_new' => $is_new,
@@ -85,7 +85,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Add image to the form data
         $post_data['image'] = new CURLFile($image['tmp_name'], $image['type'], $image['name']);
 
-        $create_url = $base_url . "book?action=create";
+        $create_url = $base_url . "/book?action=create";
         $headers = [
             'Authorization: Bearer ' . ($_SESSION['access_token'] ?? '')
         ];
