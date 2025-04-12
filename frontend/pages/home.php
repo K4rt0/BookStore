@@ -46,14 +46,14 @@ $latestBooksAll = fetchData("{$api_base_url}/book?action=get-all-books-paginatio
 // Fetch categories
 $categoriesData = fetchData("{$api_base_url}/category?action=get-all-categories");
 $categories = $categoriesData ?? [];
+$categories = array_slice($categories, 0, 4);
 
 // Fetch books for each category dynamically
 $latestBooksByCategory = [];
 foreach ($categories as $category) {
     $categoryId = $category['id'];
-    $latestBooksByCategory[$categoryId] = fetchData("{$api_base_url}/book?action=get-all-books-pagination&page=1&limit=6&is_new=1&sort=created_at_desc&is_deleted=0&category[]={$categoryId}")['books'] ?? [];
+    $latestBooksByCategory[$categoryId] = fetchData("{$api_base_url}/book?action=get-all-books-pagination&page=1&limit=4&is_new=1&sort=created_at_desc&is_deleted=0&category[]={$categoryId}")['books'] ?? [];
 }
-
 ob_start();
 ?>
 
@@ -138,7 +138,7 @@ ob_start();
                                     </a>
                                 </div>
                                 <div class="properties-caption">
-                                    <h3><a href="/book-details?id=<?= htmlspecialchars($book['id']) ?>"><?= htmlspecialchars($book['title']) ?></a></h3>
+                                    <h3 style="margin-bottom: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><a href="/book-details?id=<?= htmlspecialchars($book['id']) ?>"><?= htmlspecialchars($book['title']) ?></a></h3>
                                     <p><?= htmlspecialchars($book['author']) ?></p>
                                     <div class="properties-footer d-flex justify-content-between align-items-center">
                                         <div class="review">
@@ -189,7 +189,7 @@ ob_start();
                                     </div>
                                     <div class="features-caption">
                                         <img src="assets/img/icon/logo.html" alt="">
-                                        <h3><?= htmlspecialchars($book['title']) ?></h3>
+                                        <h3 style="margin-bottom: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><?= htmlspecialchars($book['title']) ?></h3>
                                         <p>By <?= htmlspecialchars($book['author']) ?></p>
                                         <div class="price">
                                             <span>$<?= number_format(floatval($book['price']), 2, '.', '') ?></span>
@@ -265,7 +265,7 @@ ob_start();
                                         </a>
                                     </div>
                                     <div class="properties-caption properties-caption2">
-                                        <h3><a href="/book-details?id=<?= htmlspecialchars($book['id']) ?>"><?= htmlspecialchars($book['title']) ?></a></h3>
+                                        <h3 style="margin-bottom: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #777;"><a href="/book-details?id=<?= htmlspecialchars($book['id']) ?>"><?= htmlspecialchars($book['title']) ?></a></h3>
                                         <p><?= htmlspecialchars($book['author']) ?></p>
                                         <div class="properties-footer d-flex justify-content-between align-items-center">
                                             <div class="review">
@@ -301,7 +301,7 @@ ob_start();
                                             </a>
                                         </div>
                                         <div class="properties-caption properties-caption2">
-                                            <h3><a href="/book-details?id=<?= htmlspecialchars($book['id']) ?>"><?= htmlspecialchars($book['title']) ?></a></h3>
+                                            <h3 style="margin-bottom: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #777;"><a href="/book-details?id=<?= htmlspecialchars($book['id']) ?>"><?= htmlspecialchars($book['title']) ?></a></h3>
                                             <p><?= htmlspecialchars($book['author']) ?></p>
                                             <div class="properties-footer d-flex justify-content-between align-items-center">
                                                 <div class="review">

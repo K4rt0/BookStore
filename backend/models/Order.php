@@ -140,8 +140,6 @@ class Order {
         $order_id = $query['order_id'] ?? null;
         $status = $query['status'] ?? null;
 
-        var_dump($order_id, $status);
-        
         if (empty($order_id) || empty($status)) {
             return ApiResponse::error("Thiếu thông tin đơn hàng hoặc trạng thái đơn hàng !", 400);
         }

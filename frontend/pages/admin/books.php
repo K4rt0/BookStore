@@ -27,7 +27,7 @@ $filters = [
 ];
 
 // Build the API URL with filters
-$api_url = $base_url . "book?action=get-all-books-pagination";
+$api_url = $base_url . "/book?action=get-all-books-pagination";
 $api_url .= "&page=" . $current_page . "&limit=" . $limit;
 
 // Add filters to API URL

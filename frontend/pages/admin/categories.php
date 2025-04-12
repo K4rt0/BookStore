@@ -8,7 +8,7 @@ ob_start();
 $base_url = $_ENV['API_BASE_URL'];
 
 // Call API to fetch categories
-$api_url = $base_url . "category?action=get-all-categories";
+$api_url = $base_url . "/category?action=get-all-categories";
 $headers = [
     'Authorization: Bearer ' . ($_SESSION['access_token'] ?? '')
 ];
@@ -107,7 +107,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 return;
             }
 
-            const apiUrl = `<?= $base_url ?>category?action=update-active&id=${encodeURIComponent(categoryId)}&is_active=${newStatus}`;
+            const apiUrl = `<?= $base_url ?>/category?action=update-active&id=${encodeURIComponent(categoryId)}&is_active=${newStatus}`;
             console.log('Making PATCH request to:', apiUrl); // Debugging: Log the URL
 
             try {

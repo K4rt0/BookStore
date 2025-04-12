@@ -12,7 +12,7 @@ $user_id = $_SESSION['user_id'] ?? null;
 
 // Redirect to login if not authenticated
 if (empty($access_token) || empty($user_id)) {
-    header("Location: /login");
+    header("Location: /login"); 
     exit();
 }
 
@@ -76,62 +76,55 @@ function saveOrder($api_base_url, $access_token, $order_data) {
     return makeApiRequest($url, $access_token, 'POST', $order_data);
 }
 
-// Function to get payment URL from backend API
-function getPaymentUrl($api_base_url, $access_token, $payment_method, $order_id, $amount) {
-    $action = match ($payment_method) {
-        'vnpay' => 'create-vnpay-url',
-        'paypal' => 'create-paypal-url',
-        'momo' => 'create-momo-url',
-        default => throw new Exception("Unsupported payment method: $payment_method")
-    };
-    
-    $url = $api_base_url . "/payment?action=$action";
-    $body = [
-        "order_id" => $order_id,
-        "amount" => $amount,
-        "order_info" => "Payment for order #$order_id"
-    ];
-    return makeApiRequest($url, $access_token, 'POST', $body);
-}
-
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $payment_method = $_POST['payment_method'];
+    $payment_method = strtolower($_POST['payment_method']);
     $amount = floatval($_POST['amount']);
+    
     $order_info = [
         "user_id" => $user_id,
-        "full_name" => $_POST['first_name'],
+        "full_name" => $_POST['full_name'],
         "phone" => $_POST['phone'],
         "total_price" => $amount,
-        "shipping_address" => $_POST['address1'],
+        "shipping_address" => $_POST['shipping_address'],
         "payment_method" => strtoupper($payment_method)
     ];
     
     $carts = $_SESSION['cart_items'] ?? [];
     $cart_ids = array_column($carts, 'id');
 
-    $order_data = [
-        "order_info" => $order_info,
-        "carts" => $cart_ids
-    ];
+    // Validate cart IDs
+    if (empty($cart_ids)) {
+        $error_message = "No cart items found. Please add items to your cart.";
+    } else {
+        $order_data = [
+            "order_info" => $order_info,
+            "carts" => $cart_ids
+        ];
 
-    $order_response = saveOrder($api_base_url, $access_token, $order_data);
+        $order_response = saveOrder($api_base_url, $access_token, $order_data);
 
-    echo '<script>console.log(' . json_encode($order_response) . ');</script>';
-
-    if ($order_response['success'] && isset($order_response['data']['payment_url'])) {
-        $payment_url = $order_response['data']['payment_url'];
-        header("Location: $payment_url");
-        exit();
+        if ($order_response['success'] && isset($order_response['data']['payment_url']) && $payment_method !== 'cod') {
+            // Redirect to payment URL for online payment methods
+            $payment_url = $order_response['data']['payment_url'];
+            header("Location: $payment_url");
+            exit();
+        } elseif ($order_response['success'] && $payment_method === 'cod') {
+            // For COD, redirect to a confirmation page or clear cart
+            $_SESSION['cart_items'] = []; // Clear cart
+            header("Location: /order-confirmation?status=success&message=Order placed successfully with Cash on Delivery");
+            exit();
+        } else {
+            // Handle error
+            $error_message = $order_response['message'] ?? "Failed to create order";
+        }
     }
-    else
-        $error_message = $payment_response['message'] ?? "Failed to generate payment URL for $payment_method";
 }
 
 // Fetch cart and book details
 $cart_response = fetchCartData($api_base_url, $access_token);
 $cart_with_book_details = [];
 $subtotal = 0;
-$shipping = 30000; // Flat rate shipping in VND (30,000 VND)
+$shipping = 30000; // Flat rate shipping in VND
 $errors = [];
 
 if ($cart_response['success'] && !empty($cart_response['data'])) {
@@ -159,7 +152,7 @@ if ($cart_response['success'] && !empty($cart_response['data'])) {
             $errors[] = "Failed to fetch book details for ID $book_id: " . ($book_response['message'] ?? "Unknown error");
         }
     }
-    // Store cart items in session for use in processing
+    // Store cart items in session
     $_SESSION['cart_items'] = $cart_with_book_details;
 } else {
     $errors[] = "Failed to fetch cart data: " . ($cart_response['message'] ?? "Unknown error");
@@ -171,7 +164,7 @@ $total = $subtotal + $shipping;
 $user_response = fetchUserData($api_base_url, $access_token, $user_id);
 $user_data = $user_response['success'] && $user_response['data'] ? $user_response['data'] : null;
 
-// Check for error messages from processing
+// Check for error messages
 $error_message = isset($error_message) ? $error_message : ($_GET['error'] ?? null);
 
 ?>
@@ -209,25 +202,24 @@ $error_message = isset($error_message) ? $error_message : ($_GET['error'] ?? nul
                     <h3>Billing Information</h3>
                     <form class="row contact_form" action="" method="post" novalidate="novalidate" id="checkout_form">
                         <div class="col-md-12 form-group p_star">
-                            <input type="text" class="form-control" id="first" name="first_name" value="<?php echo htmlspecialchars($user_data['full_name'] ?? ''); ?>" placeholder="**Full Name" required />
+                            <input type="text" class="form-control" id="full_name" name="full_name" value="<?php echo htmlspecialchars($user_data['full_name'] ?? ''); ?>" placeholder="**Full Name" required />
                         </div>
                         <div class="col-md-6 form-group p_star">
-                            <input type="tel" class="form-control" id="number" name="phone" value="<?php echo htmlspecialchars($user_data['phone'] ?? ''); ?>" placeholder="**Phone Number" required />
+                            <input type="tel" class="form-control" id="phone" name="phone" value="<?php echo htmlspecialchars($user_data['phone'] ?? ''); ?>" placeholder="**Phone Number" required />
                         </div>
                         <div class="col-md-6 form-group p_star">
                             <input type="email" class="form-control" id="email" name="email" value="<?php echo htmlspecialchars($user_data['email'] ?? ''); ?>" placeholder="**Email Address" required />
                         </div>
                         <div class="col-md-12 form-group p_star">
-                            <input type="text" class="form-control" id="add1" name="address1" value="<?php echo htmlspecialchars($user_data['address'] ?? ''); ?>" placeholder="**Address (House number, street, ward/commune)" required />
+                            <input type="text" class="form-control" id="shipping_address" name="shipping_address" value="<?php echo htmlspecialchars($user_data['address'] ?? ''); ?>" placeholder="**Address (House number, street, ward/commune)" required />
                         </div>
                         <div class="col-md-12 form-group">
                             <textarea class="form-control" name="message" id="message" rows="1" placeholder="**Order Notes (optional)"><?php echo htmlspecialchars($user_data['notes'] ?? ''); ?></textarea>
                         </div>
                         <!-- Hidden fields for order -->
                         <input type="hidden" name="amount" value="<?php echo $total; ?>">
-                        <input type="hidden" name="order_info" value="Payment for Book Shop order">
-                        <input type="hidden" name="payment_method" id="payment_method" value="">
-                        <button type="submit" class="btn" id="checkout_btn">Place Order</button>
+                        <input type="hidden" name="payment_method" id="payment_method" value="vnpay">
+                        <button type="submit" class="btn" id="checkout_btn">Pay with VNPay</button>
                         <!-- PayPal Button Container -->
                         <div id="paypal-button-container" style="display: none; margin-top: 10px;"></div>
                     </form>
@@ -253,36 +245,33 @@ $error_message = isset($error_message) ? $error_message : ($_GET['error'] ?? nul
                             <li><a href="#">Total <span><strong><?php echo number_format($total, 0, ',', '.'); ?> VND</strong></span></a></li>
                         </ul>
                         <h4 class="mt-4">Payment Method</h4>
-                        <!-- Online Payment -->
                         <div class="payment_item">
                             <div class="radion_btn">
-                                <input type="radio" id="f-option-online" name="payment_method_radio" value="online" onchange="updatePaymentMethod('online')" checked />
-                                <label for="f-option-online">Online Payment</label>
+                                <input type="radio" id="f-option-vnpay" name="payment_method" value="vnpay" checked onchange="updatePaymentMethod('vnpay')" />
+                                <label for="f-option-vnpay">VNPay</label>
+                                <img style="width: 5rem; margin-left: 10px;" src="./assets/svg/vnpay.svg" alt="VNPay" />
                                 <div class="check"></div>
                             </div>
-                            <p>Pay securely online using one of the following methods:</p>
-                            <div class="online-payment-options" style="margin-left: 20px;">
-                                <div class="payment_option">
-                                    <input type="radio" id="f-option-vnpay" name="online_payment_method" value="vnpay" checked onchange="updatePaymentMethod('vnpay')" />
-                                    <label for="f-option-vnpay">VNPay</label>
-                                    <img style="width: 5rem; margin-left: 10px;" src="./assets/svg/vnpay.svg" alt="VNPay" />
-                                </div>
-                                <div class="payment_option">
-                                    <input type="radio" id="f-option-paypal" name="online_payment_method" value="paypal" onchange="updatePaymentMethod('paypal')" />
-                                    <label for="f-option-paypal">PayPal</label>
-                                    <img style="width: 5rem; margin-left: 10px;" src="./assets/svg/64px-PayPal.svg.png" alt="PayPal" />
-                                </div>
-                                <div class="payment_option">
-                                    <input type="radio" id="f-option-momo" name="online_payment_method" value="momo" onchange="updatePaymentMethod('momo')" />
-                                    <label for="f-option-momo">MoMo</label>
-                                    <img style="width: 5rem; margin-left: 10px;" src="./assets/svg/momo.svg" alt="MoMo" />
-                                </div>
-                            </div>
                         </div>
-                        <!-- Cash on Delivery -->
                         <div class="payment_item">
                             <div class="radion_btn">
-                                <input type="radio" id="f-option-cod" name="payment_method_radio" value="cod" onchange="updatePaymentMethod('cod')" />
+                                <input type="radio" id="f-option-paypal" name="payment_method" value="paypal" onchange="updatePaymentMethod('paypal')" />
+                                <label for="f-option-paypal">PayPal</label>
+                                <img style="width: 5rem; margin-left: 10px;" src="./assets/svg/64px-PayPal.svg.png" alt="PayPal" />
+                                <div class="check"></div>
+                            </div>
+                        </div>
+                        <div class="payment_item">
+                            <div class="radion_btn">
+                                <input type="radio" id="f-option-momo" name="payment_method" value="momo" onchange="updatePaymentMethod('momo')" />
+                                <label for="f-option-momo">MoMo</label>
+                                <img style="width: 5rem; margin-left: 10px;" src="./assets/svg/momo.svg" alt="MoMo" />
+                                <div class="check"></div>
+                            </div>
+                        </div>
+                        <div class="payment_item">
+                            <div class="radion_btn">
+                                <input type="radio" id="f-option-cod" name="payment_method" value="cod" onchange="updatePaymentMethod('cod')" />
                                 <label for="f-option-cod">Cash on Delivery (COD)</label>
                                 <div class="check"></div>
                             </div>
@@ -296,151 +285,134 @@ $error_message = isset($error_message) ? $error_message : ($_GET['error'] ?? nul
 </section>
 
 <script>
-// Update payment method and toggle PayPal button visibility
 function updatePaymentMethod(method) {
     const paymentMethodInput = document.getElementById('payment_method');
     const checkoutBtn = document.getElementById('checkout_btn');
     const paypalButtonContainer = document.getElementById('paypal-button-container');
 
-    if (method === 'online') {
-        // Default to VNPay if "Online Payment" is selected
-        const onlineMethod = document.querySelector('input[name="online_payment_method"]:checked').value;
-        paymentMethodInput.value = onlineMethod;
-        if (onlineMethod === 'paypal') {
-            checkoutBtn.style.display = 'none';
-            paypalButtonContainer.style.display = 'block';
-        } else {
-            checkoutBtn.style.display = 'block';
-            paypalButtonContainer.style.display = 'none';
-            checkoutBtn.textContent = `Pay with ${onlineMethod.charAt(0).toUpperCase() + onlineMethod.slice(1)}`;
-        }
-    } else if (method === 'vnpay' || method === 'paypal' || method === 'momo') {
-        paymentMethodInput.value = method;
-        if (method === 'paypal') {
-            checkoutBtn.style.display = 'none';
-            paypalButtonContainer.style.display = 'block';
-        } else {
-            checkoutBtn.style.display = 'block';
-            paypalButtonContainer.style.display = 'none';
-            checkoutBtn.textContent = `Pay with ${method.charAt(0).toUpperCase() + method.slice(1)}`;
-        }
-    } else if (method === 'cod') {
-        paymentMethodInput.value = method;
+    // Update hidden input value
+    paymentMethodInput.value = method;
+
+    // Update UI based on selected method
+    if (method === 'paypal') {
+        checkoutBtn.style.display = 'none';
+        paypalButtonContainer.style.display = 'block';
+    } else {
         checkoutBtn.style.display = 'block';
         paypalButtonContainer.style.display = 'none';
-        checkoutBtn.textContent = 'Place Order';
+        checkoutBtn.textContent = method === 'cod' ? 'Place Order' : `Pay with ${method.charAt(0).toUpperCase() + method.slice(1)}`;
     }
+
+    // Update radio button states visually
+    document.querySelectorAll('input[name="payment_method"]').forEach(input => {
+        const label = input.closest('.radion_btn').querySelector('label');
+        if (input.value === method) {
+            label.style.fontWeight = 'bold';
+            label.style.color = '#007bff';
+        } else {
+            label.style.fontWeight = 'normal';
+            label.style.color = '#333';
+        }
+    });
 }
 
-// Update payment method when online payment sub-options change
-document.querySelectorAll('input[name="online_payment_method"]').forEach(input => {
+// Initialize with VNPay selected
+updatePaymentMethod('vnpay');
+
+// Add change event listeners to radio buttons
+document.querySelectorAll('input[name="payment_method"]').forEach(input => {
     input.addEventListener('change', () => {
-        if (document.getElementById('f-option-online').checked) {
-            updatePaymentMethod(input.value);
-        }
+        updatePaymentMethod(input.value);
     });
 });
 
-updatePaymentMethod('vnpay');
-
 const paypalClientId = '<?php echo htmlspecialchars($_ENV['PAYPAL_CLIENT_ID'] ?? ''); ?>';
-// Load PayPal SDK dynamically
-const script = document.createElement('script');
-script.src = `https://www.paypal.com/sdk/js?client-id=${paypalClientId}&currency=USD`;
-script.async = true;
-script.onload = () => {
-    paypal.Buttons({
-        style: {
-            shape: "rect",
-            layout: "vertical",
-            color: "gold",
-            label: "paypal",
-        },
-        onClick: () => {
-            // Validate form before proceeding
-            const form = document.getElementById('checkout_form');
-            if (!form.checkValidity()) {
-                form.reportValidity();
-                return false;
-            }
-        },
-        createOrder: async () => {
-            try {
-                // Collect form data
-                const formData = new FormData(document.getElementById('checkout_form'));
-                const data = Object.fromEntries(formData.entries());
-
-                // Prepare order data
-                const orderInfo = {
-                    user_id: '<?php echo $user_id; ?>',
-                    full_name: data.first_name,
-                    phone: data.phone,
-                    total_price: parseFloat(data.amount),
-                    shipping_address: data.address1,
-                    payment_method: 'PAYPAL'
-                };
-
-                const cartItems = <?php echo json_encode($_SESSION['cart_items'] ?? []); ?>;
-                const cartIds = cartItems.map(item => item.id);
-
-                const orderData = {
-                    order_info: orderInfo,
-                    carts: cartIds
-                };
-
-                // Create order via API
-                const response = await fetch('<?php echo $api_base_url; ?>/order?action=create-order', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': 'Bearer <?php echo $access_token; ?>'
-                    },
-                    body: JSON.stringify(orderData)
-                });
-
-                const orderResult = await response.json();
-
-                if (!orderResult.success || !orderResult.data.order_id) {
-                    throw new Error(orderResult.message || 'Failed to create order');
+if (paypalClientId) {
+    const script = document.createElement('script');
+    script.src = `https://www.paypal.com/sdk/js?client-id=${paypalClientId}&currency=USD`;
+    script.async = true;
+    script.onload = () => {
+        paypal.Buttons({
+            style: {
+                shape: "rect",
+                layout: "vertical",
+                color: "gold",
+                label: "paypal",
+            },
+            onClick: () => {
+                const form = document.getElementById('checkout_form');
+                if (!form.checkValidity()) {
+                    form.reportValidity();
+                    return false;
                 }
+            },
+            createOrder: async () => {
+                try {
+                    const formData = new FormData(document.getElementById('checkout_form'));
+                    const data = Object.fromEntries(formData.entries());
 
-                const orderId = orderResult.data.order_id;
+                    const orderInfo = {
+                        user_id: '<?php echo $user_id; ?>',
+                        full_name: data.full_name,
+                        phone: data.phone,
+                        total_price: parseFloat(data.amount),
+                        shipping_address: data.shipping_address,
+                        payment_method: 'PAYPAL'
+                    };
 
-                // Get PayPal payment URL
-                const paymentResponse = await fetch('<?php echo $api_base_url; ?>/payment?action=create-paypal-url', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': 'Bearer <?php echo $access_token; ?>'
-                    },
-                    body: JSON.stringify({
-                        order_id: orderId,
-                        amount: parseFloat(data.amount),
-                        order_info: `Payment for order #${orderId}`
-                    })
-                });
+                    const cartItems = <?php echo json_encode($_SESSION['cart_items'] ?? []); ?>;
+                    const cartIds = cartItems.map(item => item.id);
 
-                const paymentResult = await paymentResponse.json();
+                    if (!cartIds.length) {
+                        throw new Error('No cart items found');
+                    }
 
-                if (!paymentResult.success || !paymentResult.data.url) {
-                    throw new Error(paymentResult.message || 'Failed to generate PayPal payment URL');
+                    const orderData = {
+                        order_info: orderInfo,
+                        carts: cartIds
+                    };
+
+                    const response = await fetch('<?php echo $api_base_url; ?>/order?action=create', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer <?php echo $access_token; ?>'
+                        },
+                        body: JSON.stringify(orderData)
+                    });
+
+                    const orderResult = await response.json();
+
+                    if (!orderResult.success || !orderResult.data.payment_url) {
+                        throw new Error(orderResult.message || 'Failed to create order');
+                    }
+
+                    window.location.href = orderResult.data.payment_url;
+                } catch (error) {
+                    console.error('PayPal Error:', error);
+                    alert(`Could not initiate PayPal Checkout: ${error.message}`);
                 }
-
-                // Redirect to PayPal payment URL
-                window.location.href = paymentResult.data.url;
-            } catch (error) {
-                console.error('PayPal Error:', error);
-                alert(`Could not initiate PayPal Checkout: ${error.message}`);
             }
-        }
-    }).render('#paypal-button-container');
-};
-document.head.appendChild(script);
+        }).render('#paypal-button-container');
+    };
+    document.head.appendChild(script);
+}
 </script>
 
 <style>
 .payment_item {
     margin-bottom: 20px;
+    padding: 10px;
+    border-radius: 5px;
+    transition: background-color 0.3s;
+}
+
+.payment_item.active {
+    background-color: #f0f7ff;
+}
+
+.payment_item:hover {
+    background-color: #f8f9fa;
 }
 
 .payment_option {
@@ -455,6 +427,40 @@ document.head.appendChild(script);
 
 .payment_option label {
     margin-right: 10px;
+    transition: color 0.3s, font-weight 0.3s;
+}
+
+.radion_btn {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+}
+
+.check {
+    width: 20px;
+    height: 20px;
+    border: 2px solid #007bff;
+    border-radius: 50%;
+    margin-left: auto;
+    position: relative;
+}
+
+.check::after {
+    content: '';
+    width: 12px;
+    height: 12px;
+    background: #007bff;
+    border-radius: 50%;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: none;
+}
+
+input[type="radio"]:checked + label + img + .check::after,
+input[type="radio"]:checked + label + .check::after {
+    display: block;
 }
 </style>
 

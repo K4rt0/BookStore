@@ -16,7 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $is_active = isset($_POST['is_active']) ? 1 : 0;
 
     // Call API to create new category
-    $api_url = $base_url . "category?action=create";
+    $api_url = $base_url . "/category?action=create";
 
     $postData = [
         'name' => $name,

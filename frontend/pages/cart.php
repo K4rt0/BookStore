@@ -191,11 +191,6 @@ if ($cart_response['success'] && !empty($cart_response['data'])) {
                             <tr>
                                 <td colspan="5" class="text-center">
                                     <p>Your cart is empty!</p>
-                                    <?php if (!empty($errors)): ?>
-                                        <?php foreach ($errors as $error): ?>
-                                            <p style="color: red;">Error: <?php echo htmlspecialchars($error); ?></p>
-                                        <?php endforeach; ?>
-                                    <?php endif; ?>
                                 </td>
                             </tr>
                         <?php endif; ?>
@@ -407,7 +402,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const currentQuantity = parseInt(input.value) || 0;
 
             if (currentQuantity >= 1) {
-                const newQuantity = currentQuantity; // Decrement the quantity
+                const newQuantity = currentQuantity;
                 updateQuantity(cartId, newQuantity, row);
             } else if (currentQuantity === 1) {
                 if (confirm('Remove this item from your cart?')) {
