@@ -42,7 +42,7 @@ class ReviewController {
             return ApiResponse::error("Bạn đã đánh giá sản phẩm này rồi !", 400);
 
         $data = [
-            'id' => $userId,
+            'id' => bin2hex(random_bytes(16)),
             'user_id' => $userId,
             'book_id' => $bookId,
             'rating' => $rate,

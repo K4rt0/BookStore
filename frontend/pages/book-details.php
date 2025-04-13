@@ -12,7 +12,7 @@ $user_id = $_SESSION['user_id'] ?? null;
 
 $book = null;
 $category = null;
-
+$reviews = [];
 if ($book_id) {
     // Fetch book details
     $api_url = $base_url . "/book?action=get-book&id=" . urlencode($book_id);
@@ -33,7 +33,8 @@ if ($book_id) {
     if ($book_json && $http_code === 200) {
         $response = json_decode($book_json, true);
         if ($response['success'] && $response['code'] == 200) {
-            $book = $response['data'];
+            $book = $response['data']['book'];
+            $reviews = $response['data']['reviews'] ?? []; // Store reviews
             
             // Fetch category details
             $category_id = $book['category_id'] ?? null;
@@ -383,13 +384,14 @@ if (!$book) {
                             <h3>Customer Reviews</h3>
                             <div class="reviews-summary">
                                 <div class="overall-rating">
-                                    <div class="rating-big"><?= number_format($rating, 1) ?></div>
+                                    <div class="rating-big"><?= number_format(floatval($book['rating'] ?? 0), 1) ?></div>
                                     <div class="stars-big">
                                         <?php 
-                                        for($i = 1; $i <= 5; $i++) {
-                                            if($i <= floor($rating)) {
+                                        $rating = floatval($book['rating'] ?? 0);
+                                        for ($i = 1; $i <= 5; $i++) {
+                                            if ($i <= floor($rating)) {
                                                 echo '<i class="fas fa-star filled"></i>';
-                                            } elseif($i - $rating <= 0.5 && $i - $rating > 0) {
+                                            } elseif ($i - $rating <= 0.5 && $i - $rating > 0) {
                                                 echo '<i class="fas fa-star-half-alt filled"></i>';
                                             } else {
                                                 echo '<i class="fas fa-star"></i>';
@@ -400,7 +402,45 @@ if (!$book) {
                                     <div class="total-reviews"><?= htmlspecialchars($book['rating_count'] ?? '0') ?> Reviews</div>
                                 </div>
                             </div>
-                            
+
+                            <!-- List of Reviews -->
+                            <div class="customer-reviews mb-4">
+                                <?php if (empty($reviews)): ?>
+                                    <div class="no-reviews">
+                                        <p>No reviews yet. Be the first to review this book!</p>
+                                    </div>
+                                <?php else: ?>
+                                    <?php foreach ($reviews as $review): ?>
+                                        <div class="review-item mb-3 p-3 border rounded">
+                                            <div class="review-header d-flex justify-content-between">
+                                                <div class="review-author">
+                                                    <strong>Anonymous</strong> <!-- Replace with actual username if available -->
+                                                </div>
+                                                <div class="review-date">
+                                                    <?= htmlspecialchars(date('F j, Y', strtotime($review['created_at']))) ?>
+                                                </div>
+                                            </div>
+                                            <div class="review-rating">
+                                                <?php 
+                                                $review_rating = intval($review['rating'] ?? 0);
+                                                for ($i = 1; $i <= 5; $i++) {
+                                                    if ($i <= $review_rating) {
+                                                        echo '<i class="fas fa-star filled"></i>';
+                                                    } else {
+                                                        echo '<i class="fas fa-star"></i>';
+                                                    }
+                                                }
+                                                ?>
+                                            </div>
+                                            <div class="review-comment mt-2">
+                                                <p><?= htmlspecialchars($review['comment'] ?? '') ?></p>
+                                            </div>
+                                        </div>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                            </div>
+
+                            <!-- Review Form -->
                             <div class="review-form">
                                 <h4>Leave a Review</h4>
                                 <form action="#" method="post" class="comment-form">
@@ -426,12 +466,6 @@ if (!$book) {
                                     <button type="submit" class="btn submit-review-btn py-4">Submit Review</button>
                                 </form>
                             </div>
-                            
-                            <div class="customer-reviews">
-                                <div class="no-reviews">
-                                    <p>No reviews yet. Be the first to review this book!</p>
-                                </div>
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -449,7 +483,45 @@ if (!$book) {
         <?php endif; ?>
     </div>
 </div>
+<style>
+    .review-item {
+        background-color: #f9f9f9;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        padding: 15px;
+        margin-bottom: 15px;
+    }
 
+    .review-header {
+        margin-bottom: 10px;
+    }
+
+    .review-author strong {
+        font-size: 16px;
+        color: #2c3e50;
+    }
+
+    .review-date {
+        font-size: 14px;
+        color: #7f8c8d;
+    }
+
+    .review-rating {
+        margin-bottom: 10px;
+    }
+
+    .review-comment p {
+        margin: 0;
+        font-size: 14px;
+        color: #34495e;
+    }
+
+    .no-reviews p {
+        font-size: 16px;
+        color: #7f8c8d;
+        text-align: center;
+    }
+</style>
 <script>
 // Quantity selector functionality
 function incrementQuantity(max) {

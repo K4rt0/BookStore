@@ -106,6 +106,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $active_tab === 'password') {
         }
     }
 }
+
 // Xử lý hủy đơn hàng
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['cancel_order_id'])) {
     $order_id = $_POST['cancel_order_id'];
@@ -113,14 +114,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['cancel_order_id'])) {
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL, "$api_base_url/order?action=cancel-order&order_id=" . urlencode($order_id));
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-
     curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'PATCH');
-
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
         'Authorization: Bearer ' . $_SESSION['access_token'],
         'Content-Type: application/json'
     ]);
-
     curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([]));
 
     $response = curl_exec($ch);
@@ -135,7 +133,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['cancel_order_id'])) {
         $cancel_error = $result['message'] ?? 'Failed to cancel order. Please try again.';
     }
 }
-
 
 ob_start();
 ?>
@@ -304,12 +301,13 @@ ob_start();
                                         foreach ($orders_data['data']['orders'] as $order) {
                                             // Kiểm tra xem đơn hàng có thể hủy được không
                                             $can_cancel = in_array($order['status'], ['Pending', 'Processing']);
+                                            // Kiểm tra trạng thái đánh giá
+                                            $is_commented = ($order['is_commented'] ?? 0) == 1;
                                     ?>
                                         <div class="order-item mb-3 p-3 border rounded">
                                             <div class="row">
                                                 <div class="col-md-3">
                                                     <p><strong>Order ID:</strong> <?= htmlspecialchars($order['id']) ?></p>
-                                                    <p><strong>Date:</strong> <?= htmlspecialchars($order['created_at']) ?></p>
                                                 </div>
                                                 <div class="col-md-3">
                                                     <p><strong>Status:</strong> 
@@ -317,6 +315,15 @@ ob_start();
                                                             <?= htmlspecialchars($order['status']) ?>
                                                         </span>
                                                     </p>
+                                                    <?php if ($order['status'] === 'Delivered'): ?>
+                                                        <p>
+                                                            <?php if ($is_commented): ?>
+                                                                <span class="text-success">Reviewed</span>
+                                                            <?php else: ?>
+                                                                <span class="text-warning">Not Review</span>
+                                                            <?php endif; ?>
+                                                        </p>
+                                                    <?php endif; ?>
                                                     <p><strong>Total:</strong> $<?= number_format($order['total_price'], 2) ?></p>
                                                 </div>
                                                 <div class="col-md-4">
@@ -334,27 +341,22 @@ ob_start();
                                     <?php
                                         }
                                         // Phân trang
-                                        // Sử dụng total từ API nếu có, nếu không thì giả định có thêm trang nếu số lượng đơn hàng bằng limit
                                         $total_orders = isset($orders_data['data']['total']) && $orders_data['data']['total'] > 0 ? $orders_data['data']['total'] : count($orders_data['data']['orders']);
-                                        // Nếu số lượng đơn hàng hiện tại bằng limit, giả định có ít nhất một trang tiếp theo
                                         if (count($orders_data['data']['orders']) == $limit && !isset($orders_data['data']['total'])) {
-                                            $total_orders += $limit; // Giả định có ít nhất một trang nữa
+                                            $total_orders += $limit;
                                         }
                                         $total_pages = ceil($total_orders / $limit);
 
-                                        // Ghi log để kiểm tra
                                         error_log("Total orders: $total_orders, Limit: $limit, Total pages: $total_pages, Current page: $page, Orders returned: " . count($orders_data['data']['orders']));
 
                                         if ($total_pages > 1) {
                                     ?>
                                         <nav aria-label="Orders pagination">
                                             <ul class="pagination justify-content-center">
-                                                <!-- Nút Previous -->
                                                 <li class="page-item <?= $page <= 1 ? 'disabled' : '' ?>">
                                                     <a class="page-link" href="/profile?tab=orders&page=<?= $page - 1 ?>&status=<?= urlencode($status) ?>&payment_status=<?= urlencode($payment_status) ?>&search=<?= urlencode($search) ?>">Previous</a>
                                                 </li>
                                                 <?php
-                                                // Giới hạn số trang hiển thị (ví dụ: tối đa 5 trang quanh trang hiện tại)
                                                 $start_page = max(1, $page - 2);
                                                 $end_page = min($total_pages, $page + 2);
                                                 if ($end_page - $start_page < 4) {
@@ -366,7 +368,6 @@ ob_start();
                                                         <a class="page-link" href="/profile?tab=orders&page=<?= $i ?>&status=<?= urlencode($status) ?>&payment_status=<?= urlencode($payment_status) ?>&search=<?= urlencode($search) ?>"><?= $i ?></a>
                                                     </li>
                                                 <?php endfor; ?>
-                                                <!-- Nút Next -->
                                                 <li class="page-item <?= $page >= $total_pages ? 'disabled' : '' ?>">
                                                     <a class="page-link" href="/profile?tab=orders&page=<?= $page + 1 ?>&status=<?= urlencode($status) ?>&payment_status=<?= urlencode($payment_status) ?>&search=<?= urlencode($search) ?>">Next</a>
                                                 </li>
@@ -427,13 +428,65 @@ ob_start();
                                     return $result;
                                 }
 
+                                // Hàm lấy thông tin sách
+                                function fetchBookDetails($api_base_url, $book_id, $access_token) {
+                                    $query_params = http_build_query([
+                                        'action' => 'get-book',
+                                        'id' => $book_id
+                                    ]);
+
+                                    $ch = curl_init();
+                                    curl_setopt($ch, CURLOPT_URL, "$api_base_url/book?$query_params");
+                                    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                                    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                                        'Authorization: Bearer ' . $access_token,
+                                        'Content-Type: application/json'
+                                    ]);
+
+                                    $response = curl_exec($ch);
+                                    $http_status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                                    curl_close($ch);
+
+                                    $result = json_decode($response, true);
+                                    if ($http_status !== 200 || !$result['success']) {
+                                        error_log("API Error (fetchBookDetails): HTTP $http_status - " . ($result['message'] ?? 'Unknown error'));
+                                        return ['success' => false, 'data' => null];
+                                    }
+                                    error_log("API Response (fetchBookDetails): " . json_encode($result));
+                                    return $result;
+                                }
+
                                 $order_id = $_GET['id'] ?? '';
                                 if (empty($order_id)) {
                                     echo '<div class="message-error">No order ID provided.</div>';
                                 } else {
                                     $order_data = fetchOrderDetails($api_base_url, $order_id, $_SESSION['access_token']);
                                     if ($order_data['success'] && !empty($order_data['data'])) {
-                                        $order = $order_data['data'];
+                                        $order = $order_data['data']['order'];
+                                        $order_details = $order_data['data']['order_details'] ?? [];
+
+                                        // Lấy thông tin sách cho mỗi mục trong order_details
+                                        $books = [];
+                                        foreach ($order_details as &$detail) {
+                                            $book_id = $detail['book_id'];
+                                            if (!isset($books[$book_id])) {
+                                                $book_response = fetchBookDetails($api_base_url, $book_id, $_SESSION['access_token']);
+                                                if ($book_response['success'] && !empty($book_response['data']['book'])) {
+                                                    $books[$book_id] = $book_response['data']['book'];
+                                                } else {
+                                                    $books[$book_id] = [
+                                                        'title' => 'Unknown Book (' . $book_id . ')',
+                                                        'image_url' => null
+                                                    ];
+                                                    error_log("Failed to fetch book $book_id: " . ($book_response['message'] ?? 'Unknown error'));
+                                                }
+                                            }
+                                            $detail['book'] = $books[$book_id];
+                                        }
+                                        unset($detail); // Unset reference to avoid issues
+
+                                        // Kiểm tra trạng thái đơn hàng và is_commented
+                                        $can_review = $order['status'] === 'Delivered' && ($order['is_commented'] ?? 0) == 0;
                                 ?>
                                     <div class="order-details">
                                         <div class="row mb-3">
@@ -452,6 +505,114 @@ ob_start();
                                                 </p>
                                                 <p><strong>Created At:</strong> <?= htmlspecialchars($order['created_at']) ?></p>
                                                 <p><strong>Updated At:</strong> <?= htmlspecialchars($order['updated_at']) ?></p>
+                                            </div>
+                                        </div>
+
+                                        <!-- Bảng danh sách sách trong đơn hàng -->
+                                        <div class="mt-4">
+                                            <h5>Order Items</h5>
+                                            <div class="table-responsive">
+                                                <table class="table table-bordered table-hover">
+                                                    <thead class="table-light">
+                                                        <tr>
+                                                            <th style="vertical-align: middle;">#</th>
+                                                            <th style="vertical-align: middle;">Book</th>
+                                                            <th style="vertical-align: middle;">Quantity</th>
+                                                            <th style="vertical-align: middle;">Price</th>
+                                                            <th style="vertical-align: middle;">Total</th>
+                                                            <?php if ($order['status'] === 'Delivered'): ?>
+                                                                <th style="vertical-align: middle;">Action</th>
+                                                            <?php endif; ?>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <?php if (!empty($order_details)): ?>
+                                                            <?php foreach ($order_details as $index => $detail): ?>
+                                                                <tr>
+                                                                    <td style="vertical-align: middle;"><?= $index + 1 ?></td>
+                                                                    <td style="vertical-align: middle;">
+                                                                        <div class="d-flex align-items-center">
+                                                                            <?php if (!empty($detail['book']['image_url'])): ?>
+                                                                                <img src="<?= htmlspecialchars($detail['book']['image_url']) ?>" 
+                                                                                     alt="<?= htmlspecialchars($detail['book']['title']) ?>" 
+                                                                                     style="width: 50px; height: 50px; object-fit: cover; margin-right: 10px;">
+                                                                            <?php else: ?>
+                                                                                <div style="width: 50px; height: 50px; background: #f0f0f0; margin-right: 10px; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #666;">
+                                                                                    No Image
+                                                                                </div>
+                                                                            <?php endif; ?>
+                                                                            <span><?= htmlspecialchars($detail['book']['title'] ?? $detail['book_id']) ?></span>
+                                                                        </div>
+                                                                    </td>
+                                                                    <td style="vertical-align: middle;"><?= htmlspecialchars($detail['quantity']) ?></td>
+                                                                    <td style="vertical-align: middle;">$<?= number_format((float)$detail['price'], 2) ?></td>
+                                                                    <td style="vertical-align: middle;">$<?= number_format((float)$detail['price'] * (int)$detail['quantity'], 2) ?></td>
+                                                                    <?php if ($order['status'] === 'Delivered'): ?>
+                                                                        <td style="vertical-align: middle;">
+                                                                            <?php if ($can_review): ?>
+                                                                                <button type="button" class="btn btn-sm btn-primary review-btn" 
+                                                                                        data-bs-toggle="modal" 
+                                                                                        data-bs-target="#reviewModal"
+                                                                                        data-order-id="<?= htmlspecialchars($order['id']) ?>"
+                                                                                        data-book-id="<?= htmlspecialchars($detail['book_id']) ?>"
+                                                                                        data-book-title="<?= htmlspecialchars($detail['book']['title'] ?? $detail['book_id']) ?>">
+                                                                                    Review
+                                                                                </button>
+                                                                            <?php else: ?>
+                                                                                <span class="text-muted">Reviewed</span>
+                                                                            <?php endif; ?>
+                                                                        </td>
+                                                                    <?php endif; ?>
+                                                                </tr>
+                                                            <?php endforeach; ?>
+                                                        <?php else: ?>
+                                                            <tr>
+                                                                <td colspan="<?= $order['status'] === 'Delivered' ? 6 : 5 ?>" class="text-center" style="vertical-align: middle;">No items found in this order.</td>
+                                                            </tr>
+                                                        <?php endif; ?>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Modal để nhập đánh giá -->
+                                    <div class="modal fade" id="reviewModal" tabindex="-1" aria-labelledby="reviewModalLabel" aria-hidden="true">
+                                        <div class="modal-dialog">
+                                            <div class="modal-content">
+                                                <div class="modal-header">
+                                                    <h5 class="modal-title" id="reviewModalLabel">Review Book</h5>
+                                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                </div>
+                                                <div class="modal-body">
+                                                    <form id="reviewForm">
+                                                        <input type="hidden" id="reviewOrderId" name="order_id">
+                                                        <input type="hidden" id="reviewBookId" name="book_id">
+                                                        <div class="mb-3">
+                                                            <label class="form-label">Book</label>
+                                                            <p id="reviewBookTitle" class="form-control-plaintext"></p>
+                                                        </div>
+                                                        <div class="mb-3">
+                                                            <label for="reviewRating" class="form-label">Rating (1-5)</label>
+                                                            <select class="form-select" id="reviewRating" name="rate" required>
+                                                                <option value="">Select rating</option>
+                                                                <option value="1">1 - Poor</option>
+                                                                <option value="2">2 - Fair</option>
+                                                                <option value="3">3 - Good</option>
+                                                                <option value="4">4 - Very Good</option>
+                                                                <option value="5">5 - Excellent</option>
+                                                            </select>
+                                                        </div>
+                                                        <div class="mb-3">
+                                                            <label for="reviewComment" class="form-label">Comment</label>
+                                                            <textarea class="form-control" id="reviewComment" name="comment" rows="3" required></textarea>
+                                                        </div>
+                                                    </form>
+                                                </div>
+                                                <div class="modal-footer">
+                                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                                    <button type="button" class="btn btn-primary" id="submitReviewBtn">Submit Review</button>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -608,6 +769,70 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     });
+
+    // Xử lý nút Review
+    const reviewButtons = document.querySelectorAll('.review-btn');
+    reviewButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const orderId = this.getAttribute('data-order-id');
+            const bookId = this.getAttribute('data-book-id');
+            const bookTitle = this.getAttribute('data-book-title');
+
+            // Điền thông tin vào modal
+            document.getElementById('reviewOrderId').value = orderId;
+            document.getElementById('reviewBookId').value = bookId;
+            document.getElementById('reviewBookTitle').textContent = bookTitle;
+        });
+    });
+
+    // Xử lý gửi đánh giá
+    const submitReviewBtn = document.getElementById('submitReviewBtn');
+    if (submitReviewBtn) {
+        submitReviewBtn.addEventListener('click', async function() {
+            const orderId = document.getElementById('reviewOrderId').value;
+            const bookId = document.getElementById('reviewBookId').value;
+            const rating = document.getElementById('reviewRating').value;
+            const comment = document.getElementById('reviewComment').value;
+
+            // Kiểm tra dữ liệu
+            if (!rating || !comment) {
+                alert('Please provide both a rating and a comment.');
+                return;
+            }
+
+            const reviewData = {
+                order_id: orderId,
+                book_id: bookId,
+                rate: parseInt(rating),
+                comment: comment
+            };
+
+            try {
+                const response = await fetch('<?= $api_base_url ?>/review?action=create', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer <?= $_SESSION['access_token'] ?? '' ?>',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(reviewData)
+                });
+
+                const result = await response.json();
+                if (response.ok && result.success) {
+                    alert('Review submitted successfully!');
+                    // Đóng modal
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('reviewModal'));
+                    modal.hide();
+                    // Làm mới trang để cập nhật giao diện (nếu cần)
+                    location.reload();
+                } else {
+                    throw new Error(result.message || 'Failed to submit review.');
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        });
+    }
 });
 </script>
 
