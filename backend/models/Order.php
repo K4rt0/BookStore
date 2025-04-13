@@ -194,8 +194,8 @@ class Order {
         }
     }
 
-    public function update_is_commented($orderId) {
-        $stmt = $this->conn->prepare('UPDATE orders SET is_commented = TRUE WHERE id = ?');
-        $stmt->execute([$orderId]);
+    public function update_is_commented($id) {
+        $stmt = $this->conn->prepare('UPDATE order_details SET is_commented = TRUE WHERE id = ?');
+        $stmt->execute([$id]);
     }
 }

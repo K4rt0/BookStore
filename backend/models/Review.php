@@ -11,7 +11,12 @@ class Review {
     }
 
     public function get_reviews_by_book($bookId) {
-        $stmt = $this->conn->prepare("SELECT * FROM {$this->table} WHERE book_id = ?");
+        $stmt = $this->conn->prepare("
+            SELECT reviews.id, reviews.book_id, reviews.rating, reviews.comment, users.full_name 
+            FROM {$this->table} 
+            INNER JOIN users ON reviews.user_id = users.id 
+            WHERE reviews.book_id = ?
+        ");
         $stmt->execute([$bookId]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
@@ -23,7 +28,7 @@ class Review {
 
     public function validate_review($userId, $orderId, $bookId) {
         $stmt = $this->conn->prepare('
-            SELECT * 
+            SELECT order_details.id, order_details.is_commented
             FROM orders 
             INNER JOIN order_details ON orders.id = order_details.order_id 
             WHERE orders.user_id = ? AND orders.id = ? AND order_details.book_id = ?

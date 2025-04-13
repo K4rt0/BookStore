@@ -50,7 +50,7 @@ class ReviewController {
         ];
         $this->review->create($data);
         $this->book->update_book_rating($bookId, $rate);
-        $this->order->update_is_commented($orderId);
+        $this->order->update_is_commented($validation['id']);
         ApiResponse::success("Đánh giá thành công !", 200);
     }
 }
