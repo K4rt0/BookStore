@@ -11,6 +11,8 @@ switch ($_SERVER['REQUEST_METHOD']) {
             $data = AuthMiddleware::requireAuth();
             $controller->create_review($data->sub);
         }
+        else
+            $flag = true;
         break;
 
     default:

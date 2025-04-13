@@ -66,7 +66,6 @@ CREATE TABLE orders (
     full_name VARCHAR(255) NOT NULL,
     phone VARCHAR(20) NOT NULL,
     shipping_address TEXT NOT NULL,
-    is_commented BOOLEAN DEFAULT FALSE,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id)
@@ -78,6 +77,7 @@ CREATE TABLE order_details (
     book_id CHAR(36),
     quantity INT NOT NULL,
     price DECIMAL(10,2) NOT NULL,
+    is_commented BOOLEAN DEFAULT FALSE,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (order_id) REFERENCES orders(id),

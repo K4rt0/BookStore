@@ -14,16 +14,6 @@ class ReviewController {
         $this->order = new Order();
     }
 
-    public function get_reviews($params) {
-        $bookId = $params['book_id'] ?? null;
-        if ($bookId) {
-            $reviews = $this->review->get_reviews_by_book($bookId);
-            echo json_encode($reviews);
-        } else {
-            echo json_encode(['error' => 'Book ID is required']);
-        }
-    }
-
     public function create_review($userId) {
         $input = json_decode(file_get_contents("php://input"), true);
         $orderId = $input['order_id'] ?? null;
@@ -50,7 +40,7 @@ class ReviewController {
         ];
         $this->review->create($data);
         $this->book->update_book_rating($bookId, $rate);
-        $this->order->update_is_commented($orderId);
+        $this->order->update_is_commented($validation['id']);
         ApiResponse::success("Đánh giá thành công !", 200);
     }
 }
