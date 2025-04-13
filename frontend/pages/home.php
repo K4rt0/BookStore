@@ -27,10 +27,10 @@ function getStarRating($rating) {
     $emptyStars = 5 - $fullStars - $halfStar;
     $starsHTML = '';
     for ($i = 0; $i < $fullStars; $i++) {
-        $starsHTML .= '<i class="fas fa-star"></i>';
+        $starsHTML .= '<i class="fas fa-star filled"></i>';
     }
     if ($halfStar) {
-        $starsHTML .= '<i class="fas fa-star-half-alt"></i>';
+        $starsHTML .= '<i class="fas fa-star-half-alt filled"></i>';
     }
     for ($i = 0; $i < $emptyStars; $i++) {
         $starsHTML .= '<i class="fas fa-star"></i>';
@@ -56,7 +56,17 @@ foreach ($categories as $category) {
 }
 ob_start();
 ?>
+<style>
+    .fa-star, .fa-star-half-alt {
+        font-size: 18px;
+        color: #ddd !important;
+        margin-right: 2px;
+    }
 
+    .filled {
+        color: #ffc107 !important;
+    }
+</style>
 <!-- slider Area Start -->
 <div class="slider-area">
     <div class="container">

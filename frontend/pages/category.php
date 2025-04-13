@@ -4,7 +4,7 @@ ob_start(); // Start buffer to store page content
 
 // Set up API connection
 session_start();
-$base_url = $_ENV['API_BASE_URL'] ?? 'https://api.example.com/'; // Fallback if not set
+$base_url = $_ENV['API_BASE_URL'];
 $headers = [
     'Authorization: Bearer ' . ($_SESSION['access_token'] ?? '')
 ];
@@ -100,6 +100,15 @@ if (empty($books)) {
         padding: 20px;
         font-size: 1.2rem;
         color: #777;
+    }
+    .fa-star, .fa-star-half-alt {
+        font-size: 18px;
+        color: #ddd !important;
+        margin-right: 2px;
+    }
+
+    .filled {
+        color: #ffc107 !important;
     }
 </style>
 
@@ -243,9 +252,9 @@ if (empty($books)) {
                                                             $rating_value = floatval($book['rating'] ?? 0);
                                                             for ($i = 1; $i <= 5; $i++) {
                                                                 if ($i <= floor($rating_value)) {
-                                                                    echo '<i class="fas fa-star"></i>';
+                                                                    echo '<i class="fas fa-star filled"></i>';
                                                                 } elseif ($i - $rating_value <= 0.5 && $i - $rating_value > 0) {
-                                                                    echo '<i class="fas fa-star-half-alt"></i>';
+                                                                    echo '<i class="fas fa-star-half-alt filled"></i>';
                                                                 } else {
                                                                     echo '<i class="fas fa-star"></i>';
                                                                 }
@@ -368,9 +377,9 @@ document.addEventListener('DOMContentLoaded', function () {
                     let stars = '';
                     for (let i = 1; i <= 5; i++) {
                         if (i <= Math.floor(rating)) {
-                            stars += '<i class="fas fa-star"></i>';
+                            stars += '<i class="fas fa-star filled"></i>';
                         } else if (i - rating <= 0.5 && i - rating > 0) {
-                            stars += '<i class="fas fa-star-half-alt"></i>';
+                            stars += '<i class="fas fa-star-half-alt filled"></i>';
                         } else {
                             stars += '<i class="fas fa-star"></i>';
                         }
