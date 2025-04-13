@@ -301,12 +301,13 @@ ob_start();
                                         foreach ($orders_data['data']['orders'] as $order) {
                                             // Kiểm tra xem đơn hàng có thể hủy được không
                                             $can_cancel = in_array($order['status'], ['Pending', 'Processing']);
+                                            // Kiểm tra trạng thái đánh giá
+                                            $is_commented = ($order['is_commented'] ?? 0) == 1;
                                     ?>
                                         <div class="order-item mb-3 p-3 border rounded">
                                             <div class="row">
                                                 <div class="col-md-3">
                                                     <p><strong>Order ID:</strong> <?= htmlspecialchars($order['id']) ?></p>
-                                                    <p><strong>Date:</strong> <?= htmlspecialchars($order['created_at']) ?></p>
                                                 </div>
                                                 <div class="col-md-3">
                                                     <p><strong>Status:</strong> 
@@ -314,6 +315,15 @@ ob_start();
                                                             <?= htmlspecialchars($order['status']) ?>
                                                         </span>
                                                     </p>
+                                                    <?php if ($order['status'] === 'Delivered'): ?>
+                                                        <p>
+                                                            <?php if ($is_commented): ?>
+                                                                <span class="text-success">Reviewed</span>
+                                                            <?php else: ?>
+                                                                <span class="text-warning">Not Review</span>
+                                                            <?php endif; ?>
+                                                        </p>
+                                                    <?php endif; ?>
                                                     <p><strong>Total:</strong> $<?= number_format($order['total_price'], 2) ?></p>
                                                 </div>
                                                 <div class="col-md-4">
@@ -474,6 +484,9 @@ ob_start();
                                             $detail['book'] = $books[$book_id];
                                         }
                                         unset($detail); // Unset reference to avoid issues
+
+                                        // Kiểm tra trạng thái đơn hàng và is_commented
+                                        $can_review = $order['status'] === 'Delivered' && ($order['is_commented'] ?? 0) == 0;
                                 ?>
                                     <div class="order-details">
                                         <div class="row mb-3">
@@ -507,6 +520,9 @@ ob_start();
                                                             <th style="vertical-align: middle;">Quantity</th>
                                                             <th style="vertical-align: middle;">Price</th>
                                                             <th style="vertical-align: middle;">Total</th>
+                                                            <?php if ($order['status'] === 'Delivered'): ?>
+                                                                <th style="vertical-align: middle;">Action</th>
+                                                            <?php endif; ?>
                                                         </tr>
                                                     </thead>
                                                     <tbody>
@@ -531,15 +547,72 @@ ob_start();
                                                                     <td style="vertical-align: middle;"><?= htmlspecialchars($detail['quantity']) ?></td>
                                                                     <td style="vertical-align: middle;">$<?= number_format((float)$detail['price'], 2) ?></td>
                                                                     <td style="vertical-align: middle;">$<?= number_format((float)$detail['price'] * (int)$detail['quantity'], 2) ?></td>
+                                                                    <?php if ($order['status'] === 'Delivered'): ?>
+                                                                        <td style="vertical-align: middle;">
+                                                                            <?php if ($can_review): ?>
+                                                                                <button type="button" class="btn btn-sm btn-primary review-btn" 
+                                                                                        data-bs-toggle="modal" 
+                                                                                        data-bs-target="#reviewModal"
+                                                                                        data-order-id="<?= htmlspecialchars($order['id']) ?>"
+                                                                                        data-book-id="<?= htmlspecialchars($detail['book_id']) ?>"
+                                                                                        data-book-title="<?= htmlspecialchars($detail['book']['title'] ?? $detail['book_id']) ?>">
+                                                                                    Review
+                                                                                </button>
+                                                                            <?php else: ?>
+                                                                                <span class="text-muted">Reviewed</span>
+                                                                            <?php endif; ?>
+                                                                        </td>
+                                                                    <?php endif; ?>
                                                                 </tr>
                                                             <?php endforeach; ?>
                                                         <?php else: ?>
                                                             <tr>
-                                                                <td colspan="5" class="text-center" style="vertical-align: middle;">No items found in this order.</td>
+                                                                <td colspan="<?= $order['status'] === 'Delivered' ? 6 : 5 ?>" class="text-center" style="vertical-align: middle;">No items found in this order.</td>
                                                             </tr>
                                                         <?php endif; ?>
                                                     </tbody>
                                                 </table>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Modal để nhập đánh giá -->
+                                    <div class="modal fade" id="reviewModal" tabindex="-1" aria-labelledby="reviewModalLabel" aria-hidden="true">
+                                        <div class="modal-dialog">
+                                            <div class="modal-content">
+                                                <div class="modal-header">
+                                                    <h5 class="modal-title" id="reviewModalLabel">Review Book</h5>
+                                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                </div>
+                                                <div class="modal-body">
+                                                    <form id="reviewForm">
+                                                        <input type="hidden" id="reviewOrderId" name="order_id">
+                                                        <input type="hidden" id="reviewBookId" name="book_id">
+                                                        <div class="mb-3">
+                                                            <label class="form-label">Book</label>
+                                                            <p id="reviewBookTitle" class="form-control-plaintext"></p>
+                                                        </div>
+                                                        <div class="mb-3">
+                                                            <label for="reviewRating" class="form-label">Rating (1-5)</label>
+                                                            <select class="form-select" id="reviewRating" name="rate" required>
+                                                                <option value="">Select rating</option>
+                                                                <option value="1">1 - Poor</option>
+                                                                <option value="2">2 - Fair</option>
+                                                                <option value="3">3 - Good</option>
+                                                                <option value="4">4 - Very Good</option>
+                                                                <option value="5">5 - Excellent</option>
+                                                            </select>
+                                                        </div>
+                                                        <div class="mb-3">
+                                                            <label for="reviewComment" class="form-label">Comment</label>
+                                                            <textarea class="form-control" id="reviewComment" name="comment" rows="3" required></textarea>
+                                                        </div>
+                                                    </form>
+                                                </div>
+                                                <div class="modal-footer">
+                                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                                    <button type="button" class="btn btn-primary" id="submitReviewBtn">Submit Review</button>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -696,6 +769,70 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     });
+
+    // Xử lý nút Review
+    const reviewButtons = document.querySelectorAll('.review-btn');
+    reviewButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const orderId = this.getAttribute('data-order-id');
+            const bookId = this.getAttribute('data-book-id');
+            const bookTitle = this.getAttribute('data-book-title');
+
+            // Điền thông tin vào modal
+            document.getElementById('reviewOrderId').value = orderId;
+            document.getElementById('reviewBookId').value = bookId;
+            document.getElementById('reviewBookTitle').textContent = bookTitle;
+        });
+    });
+
+    // Xử lý gửi đánh giá
+    const submitReviewBtn = document.getElementById('submitReviewBtn');
+    if (submitReviewBtn) {
+        submitReviewBtn.addEventListener('click', async function() {
+            const orderId = document.getElementById('reviewOrderId').value;
+            const bookId = document.getElementById('reviewBookId').value;
+            const rating = document.getElementById('reviewRating').value;
+            const comment = document.getElementById('reviewComment').value;
+
+            // Kiểm tra dữ liệu
+            if (!rating || !comment) {
+                alert('Please provide both a rating and a comment.');
+                return;
+            }
+
+            const reviewData = {
+                order_id: orderId,
+                book_id: bookId,
+                rate: parseInt(rating),
+                comment: comment
+            };
+
+            try {
+                const response = await fetch('<?= $api_base_url ?>/review?action=create', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer <?= $_SESSION['access_token'] ?? '' ?>',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(reviewData)
+                });
+
+                const result = await response.json();
+                if (response.ok && result.success) {
+                    alert('Review submitted successfully!');
+                    // Đóng modal
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('reviewModal'));
+                    modal.hide();
+                    // Làm mới trang để cập nhật giao diện (nếu cần)
+                    location.reload();
+                } else {
+                    throw new Error(result.message || 'Failed to submit review.');
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        });
+    }
 });
 </script>
 
