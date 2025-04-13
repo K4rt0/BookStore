@@ -134,7 +134,7 @@ if ($cart_response['success'] && !empty($cart_response['data'])) {
         $book_response = fetchBookDetails($api_base_url, $access_token, $book_id);
         
         if ($book_response['success'] && $book_response['data']) {
-            $book = $book_response['data'];
+            $book = $book_response['data']['book'];
             $price = floatval($book['price']);
             $quantity = $item['quantity'];
             $total = $price * $quantity;
