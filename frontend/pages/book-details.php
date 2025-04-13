@@ -405,66 +405,39 @@ if (!$book) {
 
                             <!-- List of Reviews -->
                             <div class="customer-reviews mb-4">
-                                <?php if (empty($reviews)): ?>
-                                    <div class="no-reviews">
-                                        <p>No reviews yet. Be the first to review this book!</p>
-                                    </div>
-                                <?php else: ?>
-                                    <?php foreach ($reviews as $review): ?>
-                                        <div class="review-item mb-3 p-3 border rounded">
-                                            <div class="review-header d-flex justify-content-between">
-                                                <div class="review-author">
-                                                    <strong>Anonymous</strong> <!-- Replace with actual username if available -->
-                                                </div>
-                                                <div class="review-date">
-                                                    <?= htmlspecialchars(date('F j, Y', strtotime($review['created_at']))) ?>
-                                                </div>
+                            <?php if (empty($reviews)): ?>
+                                <div class="no-reviews">
+                                    <p>No reviews yet. Be the first to review this book!</p>
+                                </div>
+                            <?php else: ?>
+                                <?php foreach ($reviews as $review): ?>
+                                    <div class="review-item mb-3 p-3 border rounded">
+                                        <div class="review-header d-flex justify-content-between">
+                                            <div class="review-author">
+                                                <strong><?= htmlspecialchars($review['full_name'] ?? 'Anonymous') ?></strong>
                                             </div>
-                                            <div class="review-rating">
-                                                <?php 
-                                                $review_rating = intval($review['rating'] ?? 0);
-                                                for ($i = 1; $i <= 5; $i++) {
-                                                    if ($i <= $review_rating) {
-                                                        echo '<i class="fas fa-star filled"></i>';
-                                                    } else {
-                                                        echo '<i class="fas fa-star"></i>';
-                                                    }
+                                            <div class="review-date">
+                                                <?= htmlspecialchars(date('F j, Y', strtotime($review['created_at'] ?? 'now'))) ?>
+                                            </div>
+                                        </div>
+                                        <div class="review-rating">
+                                            <?php 
+                                            $review_rating = intval($review['rating'] ?? 0);
+                                            for ($i = 1; $i <= 5; $i++) {
+                                                if ($i <= $review_rating) {
+                                                    echo '<i class="fas fa-star filled"></i>';
+                                                } else {
+                                                    echo '<i class="fas fa-star"></i>';
                                                 }
-                                                ?>
-                                            </div>
-                                            <div class="review-comment mt-2">
-                                                <p><?= htmlspecialchars($review['comment'] ?? '') ?></p>
-                                            </div>
+                                            }
+                                            ?>
                                         </div>
-                                    <?php endforeach; ?>
-                                <?php endif; ?>
-                            </div>
-
-                            <!-- Review Form -->
-                            <div class="review-form">
-                                <h4>Leave a Review</h4>
-                                <form action="#" method="post" class="comment-form">
-                                    <div class="form-group rating-selector">
-                                        <label>Your Rating:</label>
-                                        <div class="rating-stars">
-                                            <i class="fas fa-star" data-rating="1"></i>
-                                            <i class="fas fa-star" data-rating="2"></i>
-                                            <i class="fas fa-star" data-rating="3"></i>
-                                            <i class="fas fa-star" data-rating="4"></i>
-                                            <i class="fas fa-star" data-rating="5"></i>
+                                        <div class="review-comment mt-2">
+                                            <p><?= htmlspecialchars($review['comment'] ?? '') ?></p>
                                         </div>
-                                        <input type="hidden" name="rating" id="selected-rating" value="0">
                                     </div>
-                                    <div class="form-group">
-                                        <label for="review-title">Review Title</label>
-                                        <input type="text" class="form-control" id="review-title" name="title" required>
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="review-content">Your Review</label>
-                                        <textarea class="form-control" id="review-content" name="content" rows="4" required></textarea>
-                                    </div>
-                                    <button type="submit" class="btn submit-review-btn py-4">Submit Review</button>
-                                </form>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
                             </div>
                         </div>
                     </div>

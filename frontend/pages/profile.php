@@ -29,6 +29,34 @@ $password_success = '';
 $cancel_success = '';
 $cancel_error = '';
 
+// Hàm lấy chi tiết đơn hàng (di chuyển lên đầu để dùng ở cả Orders và Order Details)
+function fetchOrderDetails($api_base_url, $order_id, $access_token) {
+    $query_params = http_build_query([
+        'action' => 'get-order',
+        'id' => $order_id
+    ]);
+
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, "$api_base_url/order?$query_params");
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Authorization: Bearer ' . $access_token,
+        'Content-Type: application/json'
+    ]);
+
+    $response = curl_exec($ch);
+    $http_status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    $result = json_decode($response, true);
+    if ($http_status !== 200 || !$result['success']) {
+        error_log("API Error (fetchOrderDetails): HTTP $http_status - " . ($result['message'] ?? 'Unknown error'));
+        return ['success' => false, 'data' => null];
+    }
+    error_log("API Response (fetchOrderDetails): " . json_encode($result));
+    return $result;
+}
+
 // Xử lý cập nhật thông tin cá nhân
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $active_tab === 'personal') {
     $full_name = $_POST['full_name'] ?? '';
@@ -301,8 +329,41 @@ ob_start();
                                         foreach ($orders_data['data']['orders'] as $order) {
                                             // Kiểm tra xem đơn hàng có thể hủy được không
                                             $can_cancel = in_array($order['status'], ['Pending', 'Processing']);
-                                            // Kiểm tra trạng thái đánh giá
-                                            $is_commented = ($order['is_commented'] ?? 0) == 1;
+
+                                            // Lấy chi tiết đơn hàng để kiểm tra trạng thái đánh giá
+                                            $review_status = '';
+                                            $review_badge_class = '';
+                                            if ($order['status'] === 'Delivered') {
+                                                $order_details_data = fetchOrderDetails($api_base_url, $order['id'], $_SESSION['access_token']);
+                                                if ($order_details_data['success'] && !empty($order_details_data['data']['order_details'])) {
+                                                    $order_details = $order_details_data['data']['order_details'];
+                                                    $total_items = count($order_details);
+                                                    $reviewed_items = 0;
+
+                                                    foreach ($order_details as $detail) {
+                                                        if (($detail['is_commented'] ?? 0) == 1) {
+                                                            $reviewed_items++;
+                                                        }
+                                                    }
+
+                                                    if ($reviewed_items == 0) {
+                                                        $review_status = 'Not Reviewed';
+                                                        $review_badge_class = 'warning';
+                                                    } elseif ($reviewed_items == $total_items) {
+                                                        $review_status = 'Reviewed';
+                                                        $review_badge_class = 'success';
+                                                    } else {
+                                                        $review_status = 'Partially Reviewed';
+                                                        $review_badge_class = 'info';
+                                                    }
+                                                } else {
+                                                    $review_status = 'No Items';
+                                                    $review_badge_class = 'secondary';
+                                                }
+                                            } else {
+                                                $review_status = 'Pending Review';
+                                                $review_badge_class = 'secondary';
+                                            }
                                     ?>
                                         <div class="order-item mb-3 p-3 border rounded">
                                             <div class="row">
@@ -315,15 +376,11 @@ ob_start();
                                                             <?= htmlspecialchars($order['status']) ?>
                                                         </span>
                                                     </p>
-                                                    <?php if ($order['status'] === 'Delivered'): ?>
-                                                        <p>
-                                                            <?php if ($is_commented): ?>
-                                                                <span class="text-success">Reviewed</span>
-                                                            <?php else: ?>
-                                                                <span class="text-warning">Not Review</span>
-                                                            <?php endif; ?>
-                                                        </p>
-                                                    <?php endif; ?>
+                                                    <p><strong></strong> 
+                                                        <span class="badge bg-<?= $review_badge_class ?>">
+                                                            <?= htmlspecialchars($review_status) ?>
+                                                        </span>
+                                                    </p>
                                                     <p><strong>Total:</strong> $<?= number_format($order['total_price'], 2) ?></p>
                                                 </div>
                                                 <div class="col-md-4">
@@ -400,34 +457,6 @@ ob_start();
                             </div>
                             <div class="card-body">
                                 <?php
-                                // Hàm lấy chi tiết đơn hàng
-                                function fetchOrderDetails($api_base_url, $order_id, $access_token) {
-                                    $query_params = http_build_query([
-                                        'action' => 'get-order',
-                                        'id' => $order_id
-                                    ]);
-
-                                    $ch = curl_init();
-                                    curl_setopt($ch, CURLOPT_URL, "$api_base_url/order?$query_params");
-                                    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-                                    curl_setopt($ch, CURLOPT_HTTPHEADER, [
-                                        'Authorization: Bearer ' . $access_token,
-                                        'Content-Type: application/json'
-                                    ]);
-
-                                    $response = curl_exec($ch);
-                                    $http_status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-                                    curl_close($ch);
-
-                                    $result = json_decode($response, true);
-                                    if ($http_status !== 200 || !$result['success']) {
-                                        error_log("API Error (fetchOrderDetails): HTTP $http_status - " . ($result['message'] ?? 'Unknown error'));
-                                        return ['success' => false, 'data' => null];
-                                    }
-                                    error_log("API Response (fetchOrderDetails): " . json_encode($result));
-                                    return $result;
-                                }
-
                                 // Hàm lấy thông tin sách
                                 function fetchBookDetails($api_base_url, $book_id, $access_token) {
                                     $query_params = http_build_query([
@@ -483,10 +512,7 @@ ob_start();
                                             }
                                             $detail['book'] = $books[$book_id];
                                         }
-                                        unset($detail); // Unset reference to avoid issues
-
-                                        // Kiểm tra trạng thái đơn hàng và is_commented
-                                        $can_review = $order['status'] === 'Delivered' && ($order['is_commented'] ?? 0) == 0;
+                                        unset($detail); // Unset reference để tránh lỗi
                                 ?>
                                     <div class="order-details">
                                         <div class="row mb-3">
@@ -549,7 +575,7 @@ ob_start();
                                                                     <td style="vertical-align: middle;">$<?= number_format((float)$detail['price'] * (int)$detail['quantity'], 2) ?></td>
                                                                     <?php if ($order['status'] === 'Delivered'): ?>
                                                                         <td style="vertical-align: middle;">
-                                                                            <?php if ($can_review): ?>
+                                                                            <?php if (($detail['is_commented'] ?? 0) == 0): ?>
                                                                                 <button type="button" class="btn btn-sm btn-primary review-btn" 
                                                                                         data-bs-toggle="modal" 
                                                                                         data-bs-target="#reviewModal"
@@ -823,7 +849,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     // Đóng modal
                     const modal = bootstrap.Modal.getInstance(document.getElementById('reviewModal'));
                     modal.hide();
-                    // Làm mới trang để cập nhật giao diện (nếu cần)
+                    // Làm mới trang để cập nhật giao diện
                     location.reload();
                 } else {
                     throw new Error(result.message || 'Failed to submit review.');
