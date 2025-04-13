@@ -26,7 +26,26 @@ $filters = [
     'sort' => isset($_GET['sort']) ? $_GET['sort'] : 'price_at_asc'
 ];
 
-// Build the API URL with filters
+// Step 1: Gọi API get-all-books để lấy tổng số sách
+$count_url = $base_url . "/book?action=get-all-books";
+$ch = curl_init($count_url);
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+curl_setopt($ch, CURLOPT_HTTPHEADER, [
+    'Authorization: Bearer ' . ($_SESSION['access_token'] ?? '')
+]);
+$count_response = curl_exec($ch);
+$count_http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+curl_close($ch);
+
+$count_result = json_decode($count_response, true);
+$total_books = ($count_http_code === 200 && $count_result['success'] && !empty($count_result['data'])) 
+    ? count($count_result['data']) 
+    : 0;
+
+// Tính tổng số trang
+$total_pages = ceil($total_books / $limit);
+
+// Step 2: Gọi API phân trang để lấy sách cho trang hiện tại
 $api_url = $base_url . "/book?action=get-all-books-pagination";
 $api_url .= "&page=" . $current_page . "&limit=" . $limit;
 
@@ -49,45 +68,52 @@ $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 curl_close($ch);
 
 $books_result = json_decode($response, true);
-$books = ($http_code === 200 && $books_result['success'] && !empty($books_result['data']['books'])) ? $books_result['data']['books'] : [];
-$total_books = ($http_code === 200 && $books_result['success']) ? ($books_result['data']['total'] ?? 0) : 0;
-$total_pages = ceil($total_books / $limit);
+$books = ($http_code === 200 && $books_result['success'] && !empty($books_result['data']['books'])) 
+    ? $books_result['data']['books'] 
+    : [];
 
-// Handle delete (toggle is_deleted) action
-if (isset($_GET['action']) && $_GET['action'] === 'toggle-deleted') {
+if (isset($_GET['action']) && $_GET['action'] === 'delete') {
     $book_id = $_GET['id'] ?? '';
-    $is_deleted = isset($_GET['is_deleted']) ? (int)$_GET['is_deleted'] : 0;
 
     if (!$book_id) {
         $error = 'Book ID is missing.';
     } else {
-        $toggle_url = $base_url . "book?action=update-deleted&id=" . urlencode($book_id) . "&is_deleted=" . $is_deleted;
+        $delete_url = $base_url . "/book?action=delete&id=" . urlencode($book_id);
 
-        $ch = curl_init($toggle_url);
+        $ch = curl_init($delete_url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "PATCH");
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "DELETE");
         curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
 
-        $toggle_response = curl_exec($ch);
-        $toggle_http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $delete_response = curl_exec($ch);
+        $delete_http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
 
-        $toggle_result = json_decode($toggle_response, true);
+        $delete_result = json_decode($delete_response, true);
 
-        if ($toggle_http_code === 200 && $toggle_result && $toggle_result['success']) {
-            $success = 'Book status updated successfully.';
+        if ($delete_http_code === 200 && $delete_result && $delete_result['success']) {
+            $success = 'Book deleted successfully.';
             
             // Redirect to maintain filter state
-            $redirect_url = $_SERVER['PHP_SELF'];
-            $query_params = $_GET;
-            unset($query_params['action'], $query_params['id'], $query_params['is_deleted']);
+            $redirect_url = getCurrentUrlPath();
+            $query_params = array_intersect_key($_GET, array_flip([
+                'page', 'limit', 'search', 'sort', 
+                'is_deleted', 'is_featured', 'is_new', 
+                'is_best_seller', 'is_discounted'
+            ]));
+            // Điều chỉnh trang nếu cần
+            $total_books--; // Giảm tổng số sách
+            $total_pages = ceil($total_books / $limit);
+            if ($current_page > $total_pages && $total_pages > 0) {
+                $query_params['page'] = $total_pages;
+            }
             if (!empty($query_params)) {
                 $redirect_url .= '?' . http_build_query($query_params);
             }
             header("Location: " . $redirect_url);
             exit;
         } else {
-            $error = $toggle_result['message'] ?? 'An error occurred while updating the book status.';
+            $error = $delete_result['message'] ?? 'An error occurred while deleting the book.';
         }
     }
 }
@@ -124,7 +150,7 @@ $sort_options = [
 ?>
 
 <!-- Chiếm full chiều cao trình duyệt -->
-<div class="card" style="height: 100vh; display: flex; flex-direction: column;">
+<div class="card" style="display: flex; flex-direction: column;">
   <div class="card-body" style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
     
     <div class="d-flex justify-content-between align-items-center mb-3">
@@ -213,7 +239,7 @@ $sort_options = [
             <th>Title</th>
             <th>Author</th>
             <th>Price</th>
-            <th>Stock Quantity</th> <!-- Thêm cột Stock Quantity -->
+            <th>Stock Quantity</th> 
             <th>Status</th>
             <th class="text-center">Actions</th>
           </tr>
@@ -265,17 +291,22 @@ $sort_options = [
                   <a href="/admin/book-edit/<?= urlencode($book['id']) ?>" class="btn btn-info btn-sm me-1">
                     <i class="ti ti-edit"></i> Edit
                   </a>
-                  <a href="?<?= buildQueryString(['action' => 'toggle-deleted', 'id' => $book['id'], 'is_deleted' => ($book['is_deleted'] ?? 0) ? 0 : 1]) ?>" 
-                     class="btn btn-sm <?= ($book['is_deleted'] ?? 0) ? 'btn-success' : 'btn-danger' ?>">
-                    <i class="ti ti-<?= ($book['is_deleted'] ?? 0) ? 'check' : 'trash' ?>"></i> 
-                    <?= ($book['is_deleted'] ?? 0) ? 'Restore' : 'Delete' ?>
-                  </a>
+                  <?php if (!($book['is_deleted'] ?? 0)): ?>
+                    <a href="?<?= buildQueryString(['action' => 'delete', 'id' => $book['id']]) ?>" 
+                       class="btn btn-danger btn-sm" 
+                       onclick="return confirm('Are you sure you want to delete this book?');">
+                      <i class="ti ti-trash"></i> Delete
+                    </a>
+                  <?php else: ?>
+                    <!-- Có thể thêm nút khôi phục nếu cần -->
+                    <span class="badge bg-secondary">Restore</span>
+                  <?php endif; ?>
                 </td>
               </tr>
             <?php endforeach; ?>
           <?php else: ?>
             <tr>
-              <td colspan="8" class="text-center">No books found.</td> <!-- Cập nhật colspan thành 8 do thêm cột Stock Quantity -->
+              <td colspan="8" class="text-center">No books found.</td> 
             </tr>
           <?php endif; ?>
         </tbody>

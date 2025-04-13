@@ -1,5 +1,4 @@
 <?php
-// Remove session_start() since it's already called in index.php
 $page_title = "Edit Book";
 $layout = 'admin';
 ini_set('display_errors', 1);
@@ -7,10 +6,8 @@ ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 ob_start();
 
-// Debug: Log session data
 error_log("Auth Token: " . ($_SESSION['access_token'] ?? 'Not set'));
 
-// Set the base URL (from environment variable)
 $base_url = $_ENV['API_BASE_URL'];
 if (empty($base_url)) {
     error_log("API_BASE_URL is not set");
@@ -18,7 +15,6 @@ if (empty($base_url)) {
 }
 error_log("Base URL: $base_url");
 
-// Validate book ID
 $book_id = isset($_GET['id']) ? trim($_GET['id']) : '';
 if (empty($book_id)) {
     error_log("Book ID is required but not provided");
@@ -26,9 +22,7 @@ if (empty($book_id)) {
 }
 error_log("Book ID: $book_id");
 
-// Get book details using the correct action 'get-book'
 $api_url = $base_url . "/book?action=get-book&id=" . urlencode($book_id);
-error_log("API URL: $api_url");
 $headers = [
     'Authorization: Bearer ' . ($_SESSION['access_token'] ?? ''),
     'Content-Type: application/json',
@@ -54,7 +48,7 @@ if ($response === false) {
 }
 curl_close($ch);
 
-$book = $result['data'] ?? null;
+$book = $result['data']['book'] ?? null;
 if (!$book) {
     $error_message = $error_message ?: 'Book not found.';
 }
@@ -77,7 +71,6 @@ if ($categories_result && isset($categories_result['data'])) {
 
 // Process form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Debug form data
     error_log("Form submission: " . json_encode($_POST));
     
     $update_api_url = $base_url . "/book?action=update";
@@ -97,7 +90,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'category_id' => trim($_POST['category_id'] ?? ''),
         'short_description' => trim($_POST['short_description'] ?? ''),
         'description' => trim($_POST['description'] ?? ''),
-        // Handle checkbox values properly - set to 1 if checked, 0 if not
         'is_featured' => isset($_POST['is_featured']) ? '1' : '0',
         'is_new' => isset($_POST['is_new']) ? '1' : '0',
         'is_best_seller' => isset($_POST['is_best_seller']) ? '1' : '0',
