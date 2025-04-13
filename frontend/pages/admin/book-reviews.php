@@ -46,7 +46,7 @@ if ($book_id) {
             $book = $result['data']['book'];
             $reviews = $result['data']['reviews'] ?? [];
             
-            // Pagination (client-side, as API doesn't support review pagination)
+            // Pagination (client-side)
             $total_reviews = count($reviews);
             $total_pages = ceil($total_reviews / $limit);
             
@@ -78,7 +78,7 @@ function buildQueryString($params = []) {
   <div class="card-body" style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
     
     <div class="d-flex justify-content-between align-items-center mb-3">
-      <h4 class="card-title mb-0">📝 Reviews </h4>
+      <h4 class="card-title mb-0">📝 Reviews</h4>
       <a href="/admin/book-management" class="btn btn-secondary btn-sm">
         <i class="ti ti-arrow-left"></i> Back to Book Management
       </a>
@@ -106,7 +106,16 @@ function buildQueryString($params = []) {
                 <div>
                     <h5 class="mb-1"><?= htmlspecialchars($book['title']) ?></h5>
                     <p class="mb-1"><strong>Author:</strong> <?= htmlspecialchars($book['author'] ?? 'N/A') ?></p>
-                    <p class="mb-0"><strong>Average Rating:</strong> <?= number_format(floatval($book['rating'] ?? 0), 1) ?> (<?= htmlspecialchars($book['rating_count'] ?? 0) ?> reviews)</p>
+                    <p class="mb-0"><strong>Average Rating:</strong> 
+                        <span class="text-warning">
+                            <?php 
+                            $rating = floatval($book['rating'] ?? 0);
+                            for ($i = 1; $i <= 5; $i++): ?>
+                                <i class="ti ti-star <?= $i <= floor($rating) ? 'filled text-warning' : ($i <= ceil($rating) && $rating - floor($rating) >= 0.5 ? 'half-filled text-warning' : 'text-muted') ?>"></i>
+                            <?php endfor; ?>
+                        </span>
+                        <?= number_format($rating, 1) ?> (<?= htmlspecialchars($book['rating_count'] ?? 0) ?> reviews)
+                    </p>
                 </div>
             </div>
         </div>
@@ -118,11 +127,9 @@ function buildQueryString($params = []) {
         <thead class="table-light">
           <tr>
             <th>#</th>
-            <th>User ID</th>
+            <th>Reviewer</th>
             <th>Rating</th>
             <th>Comment</th>
-            <th>Created At</th>
-            <th>Updated At</th>
           </tr>
         </thead>
         <tbody>
@@ -130,22 +137,20 @@ function buildQueryString($params = []) {
             <?php foreach ($reviews as $index => $review): ?>
               <tr>
                 <td><?= (($current_page - 1) * $limit) + $index + 1 ?></td>
-                <td><?= htmlspecialchars($review['user_id']) ?></td>
+                <td><?= htmlspecialchars($review['full_name'] ?? 'Anonymous') ?></td>
                 <td>
                   <?php 
                   $rating = intval($review['rating'] ?? 0);
                   for ($i = 1; $i <= 5; $i++): ?>
-                    <i class="ti ti-star <?= $i <= $rating ? 'text-warning filled' : 'text-muted' ?>"></i>
+                    <i class="ti ti-star <?= $i <= $rating ? 'filled text-warning' : 'text-muted' ?>"></i>
                   <?php endfor; ?>
                 </td>
                 <td><?= htmlspecialchars($review['comment'] ?? 'N/A') ?></td>
-                <td><?= htmlspecialchars(date('F j, Y H:i', strtotime($review['created_at']))) ?></td>
-                <td><?= htmlspecialchars(date('F j, Y H:i', strtotime($review['updated_at']))) ?></td>
               </tr>
             <?php endforeach; ?>
           <?php else: ?>
             <tr>
-              <td colspan="6" class="text-center">No reviews found for this book.</td>
+              <td colspan="4" class="text-center">No reviews found for this book.</td>
             </tr>
           <?php endif; ?>
         </tbody>
@@ -216,6 +221,21 @@ function buildQueryString($params = []) {
 
   </div>
 </div>
+
+<style>
+.ti-star.half-filled {
+    position: relative;
+    display: inline-block;
+    overflow: hidden;
+}
+.ti-star.half-filled::before {
+    content: '\e900'; /* Adjust to Themify Icons' star character */
+    position: absolute;
+    width: 50%;
+    color: #ffc107;
+    overflow: hidden;
+}
+</style>
 
 <?php
 $content = ob_get_clean();
