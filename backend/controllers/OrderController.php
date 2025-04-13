@@ -197,7 +197,7 @@ class OrderController {
             $this->payment->create($payment);
             
             ApiResponse::success("Tạo đơn hàng thành công !", 200, [
-                'payment_url' => 'http://localhost:8000/order-result.php?status=success&method=cod&order_id=' . $order_id,
+                'payment_url' => 'http://localhost:8000/order-confirmation?status=success',
             ]);
         }
         else if ($payment_method === 'momo') {

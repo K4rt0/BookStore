@@ -25,15 +25,9 @@ class PaymentController {
             return ApiResponse::error("Giao dịch không tồn tại !", 404);
  
         if($payment_method == 'momo') {
-            if($error_code == 0) {
-                $this->payment->update($payment_id, ['status' => 'Paid']);
-                header("Location: http://localhost:8000/order-result.php?status=success&method=momo&order_id=$paymentExisting[order_id]");
-                exit();
-            } else {
-                $this->payment->update($payment_id, ['status' => 'Failed']);
-                header("Location: http://localhost:8000/order-result.php?status=failed&method=momo&order_id=$paymentExisting[order_id]");
-                exit();
-            }
+            $this->payment->update($payment_id, ['status' => $error_code == 0 ? 'Paid' : 'Failed']);
+            header("Location: http://localhost:8000/order-confirmation?status=" . ($error_code == 0 ? 'success' : 'failed'));
+            exit();
         }
     }
     public function update_payment() {
