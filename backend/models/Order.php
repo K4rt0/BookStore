@@ -198,4 +198,56 @@ class Order {
         $stmt = $this->conn->prepare('UPDATE order_details SET is_commented = TRUE WHERE id = ?');
         $stmt->execute([$id]);
     }
+
+    public function get_detailed_statistics($type, $date = null, $month = null, $year = null) {
+        $condition = "";
+        $params = [];
+
+        if ($type == 'daily') {
+            $condition = "DATE(o.created_at) = ?";
+            $params[] = $date;
+        } elseif ($type == 'monthly') {
+            $condition = "MONTH(o.created_at) = ? AND YEAR(o.created_at) = ?";
+            $params = [$month, $year];
+        } elseif ($type == 'yearly') {
+            $condition = "YEAR(o.created_at) = ?";
+            $params[] = $year;
+        }
+
+        $statuses = ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'];
+        $details = [];
+
+        $totalRevenueCheck = 0;
+        $totalOrdersCheck = 0;
+
+        foreach ($statuses as $status) {
+            $stmt = $this->conn->prepare("
+                SELECT
+                    COUNT(DISTINCT o.id) AS total_orders,
+                    IFNULL(SUM(o.total_price),0) AS total_revenue,
+                    IFNULL(SUM(od.quantity),0) AS total_items
+                FROM orders o
+                LEFT JOIN order_details od ON o.id = od.order_id
+                WHERE o.status = ? AND {$condition}
+            ");
+
+            $stmt->execute(array_merge([$status], $params));
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            $details[$status] = [
+                'total_orders' => (int)$result['total_orders'],
+                'total_revenue' => (float)$result['total_revenue'],
+                'total_items' => (int)$result['total_items']
+            ];
+
+            $totalRevenueCheck += (float)$result['total_revenue'];
+            $totalOrdersCheck += (int)$result['total_orders'];
+        }
+
+        return [
+            'total_orders' => $totalOrdersCheck,
+            'total_revenue' => $totalRevenueCheck,
+            'details' => $details
+        ];
+    }
 }
