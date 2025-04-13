@@ -106,6 +106,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $active_tab === 'password') {
         }
     }
 }
+
 // Xử lý hủy đơn hàng
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['cancel_order_id'])) {
     $order_id = $_POST['cancel_order_id'];
@@ -113,14 +114,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['cancel_order_id'])) {
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL, "$api_base_url/order?action=cancel-order&order_id=" . urlencode($order_id));
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-
     curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'PATCH');
-
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
         'Authorization: Bearer ' . $_SESSION['access_token'],
         'Content-Type: application/json'
     ]);
-
     curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([]));
 
     $response = curl_exec($ch);
@@ -135,7 +133,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['cancel_order_id'])) {
         $cancel_error = $result['message'] ?? 'Failed to cancel order. Please try again.';
     }
 }
-
 
 ob_start();
 ?>
@@ -334,27 +331,22 @@ ob_start();
                                     <?php
                                         }
                                         // Phân trang
-                                        // Sử dụng total từ API nếu có, nếu không thì giả định có thêm trang nếu số lượng đơn hàng bằng limit
                                         $total_orders = isset($orders_data['data']['total']) && $orders_data['data']['total'] > 0 ? $orders_data['data']['total'] : count($orders_data['data']['orders']);
-                                        // Nếu số lượng đơn hàng hiện tại bằng limit, giả định có ít nhất một trang tiếp theo
                                         if (count($orders_data['data']['orders']) == $limit && !isset($orders_data['data']['total'])) {
-                                            $total_orders += $limit; // Giả định có ít nhất một trang nữa
+                                            $total_orders += $limit;
                                         }
                                         $total_pages = ceil($total_orders / $limit);
 
-                                        // Ghi log để kiểm tra
                                         error_log("Total orders: $total_orders, Limit: $limit, Total pages: $total_pages, Current page: $page, Orders returned: " . count($orders_data['data']['orders']));
 
                                         if ($total_pages > 1) {
                                     ?>
                                         <nav aria-label="Orders pagination">
                                             <ul class="pagination justify-content-center">
-                                                <!-- Nút Previous -->
                                                 <li class="page-item <?= $page <= 1 ? 'disabled' : '' ?>">
                                                     <a class="page-link" href="/profile?tab=orders&page=<?= $page - 1 ?>&status=<?= urlencode($status) ?>&payment_status=<?= urlencode($payment_status) ?>&search=<?= urlencode($search) ?>">Previous</a>
                                                 </li>
                                                 <?php
-                                                // Giới hạn số trang hiển thị (ví dụ: tối đa 5 trang quanh trang hiện tại)
                                                 $start_page = max(1, $page - 2);
                                                 $end_page = min($total_pages, $page + 2);
                                                 if ($end_page - $start_page < 4) {
@@ -366,7 +358,6 @@ ob_start();
                                                         <a class="page-link" href="/profile?tab=orders&page=<?= $i ?>&status=<?= urlencode($status) ?>&payment_status=<?= urlencode($payment_status) ?>&search=<?= urlencode($search) ?>"><?= $i ?></a>
                                                     </li>
                                                 <?php endfor; ?>
-                                                <!-- Nút Next -->
                                                 <li class="page-item <?= $page >= $total_pages ? 'disabled' : '' ?>">
                                                     <a class="page-link" href="/profile?tab=orders&page=<?= $page + 1 ?>&status=<?= urlencode($status) ?>&payment_status=<?= urlencode($payment_status) ?>&search=<?= urlencode($search) ?>">Next</a>
                                                 </li>
@@ -427,13 +418,62 @@ ob_start();
                                     return $result;
                                 }
 
+                                // Hàm lấy thông tin sách
+                                function fetchBookDetails($api_base_url, $book_id, $access_token) {
+                                    $query_params = http_build_query([
+                                        'action' => 'get-book',
+                                        'id' => $book_id
+                                    ]);
+
+                                    $ch = curl_init();
+                                    curl_setopt($ch, CURLOPT_URL, "$api_base_url/book?$query_params");
+                                    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                                    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                                        'Authorization: Bearer ' . $access_token,
+                                        'Content-Type: application/json'
+                                    ]);
+
+                                    $response = curl_exec($ch);
+                                    $http_status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                                    curl_close($ch);
+
+                                    $result = json_decode($response, true);
+                                    if ($http_status !== 200 || !$result['success']) {
+                                        error_log("API Error (fetchBookDetails): HTTP $http_status - " . ($result['message'] ?? 'Unknown error'));
+                                        return ['success' => false, 'data' => null];
+                                    }
+                                    error_log("API Response (fetchBookDetails): " . json_encode($result));
+                                    return $result;
+                                }
+
                                 $order_id = $_GET['id'] ?? '';
                                 if (empty($order_id)) {
                                     echo '<div class="message-error">No order ID provided.</div>';
                                 } else {
                                     $order_data = fetchOrderDetails($api_base_url, $order_id, $_SESSION['access_token']);
                                     if ($order_data['success'] && !empty($order_data['data'])) {
-                                        $order = $order_data['data'];
+                                        $order = $order_data['data']['order'];
+                                        $order_details = $order_data['data']['order_details'] ?? [];
+
+                                        // Lấy thông tin sách cho mỗi mục trong order_details
+                                        $books = [];
+                                        foreach ($order_details as &$detail) {
+                                            $book_id = $detail['book_id'];
+                                            if (!isset($books[$book_id])) {
+                                                $book_response = fetchBookDetails($api_base_url, $book_id, $_SESSION['access_token']);
+                                                if ($book_response['success'] && !empty($book_response['data']['book'])) {
+                                                    $books[$book_id] = $book_response['data']['book'];
+                                                } else {
+                                                    $books[$book_id] = [
+                                                        'title' => 'Unknown Book (' . $book_id . ')',
+                                                        'image_url' => null
+                                                    ];
+                                                    error_log("Failed to fetch book $book_id: " . ($book_response['message'] ?? 'Unknown error'));
+                                                }
+                                            }
+                                            $detail['book'] = $books[$book_id];
+                                        }
+                                        unset($detail); // Unset reference to avoid issues
                                 ?>
                                     <div class="order-details">
                                         <div class="row mb-3">
@@ -452,6 +492,54 @@ ob_start();
                                                 </p>
                                                 <p><strong>Created At:</strong> <?= htmlspecialchars($order['created_at']) ?></p>
                                                 <p><strong>Updated At:</strong> <?= htmlspecialchars($order['updated_at']) ?></p>
+                                            </div>
+                                        </div>
+
+                                        <!-- Bảng danh sách sách trong đơn hàng -->
+                                        <div class="mt-4">
+                                            <h5>Order Items</h5>
+                                            <div class="table-responsive">
+                                                <table class="table table-bordered table-hover">
+                                                    <thead class="table-light">
+                                                        <tr>
+                                                            <th style="vertical-align: middle;">#</th>
+                                                            <th style="vertical-align: middle;">Book</th>
+                                                            <th style="vertical-align: middle;">Quantity</th>
+                                                            <th style="vertical-align: middle;">Price</th>
+                                                            <th style="vertical-align: middle;">Total</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <?php if (!empty($order_details)): ?>
+                                                            <?php foreach ($order_details as $index => $detail): ?>
+                                                                <tr>
+                                                                    <td style="vertical-align: middle;"><?= $index + 1 ?></td>
+                                                                    <td style="vertical-align: middle;">
+                                                                        <div class="d-flex align-items-center">
+                                                                            <?php if (!empty($detail['book']['image_url'])): ?>
+                                                                                <img src="<?= htmlspecialchars($detail['book']['image_url']) ?>" 
+                                                                                     alt="<?= htmlspecialchars($detail['book']['title']) ?>" 
+                                                                                     style="width: 50px; height: 50px; object-fit: cover; margin-right: 10px;">
+                                                                            <?php else: ?>
+                                                                                <div style="width: 50px; height: 50px; background: #f0f0f0; margin-right: 10px; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #666;">
+                                                                                    No Image
+                                                                                </div>
+                                                                            <?php endif; ?>
+                                                                            <span><?= htmlspecialchars($detail['book']['title'] ?? $detail['book_id']) ?></span>
+                                                                        </div>
+                                                                    </td>
+                                                                    <td style="vertical-align: middle;"><?= htmlspecialchars($detail['quantity']) ?></td>
+                                                                    <td style="vertical-align: middle;">$<?= number_format((float)$detail['price'], 2) ?></td>
+                                                                    <td style="vertical-align: middle;">$<?= number_format((float)$detail['price'] * (int)$detail['quantity'], 2) ?></td>
+                                                                </tr>
+                                                            <?php endforeach; ?>
+                                                        <?php else: ?>
+                                                            <tr>
+                                                                <td colspan="5" class="text-center" style="vertical-align: middle;">No items found in this order.</td>
+                                                            </tr>
+                                                        <?php endif; ?>
+                                                    </tbody>
+                                                </table>
                                             </div>
                                         </div>
                                     </div>
