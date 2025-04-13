@@ -76,8 +76,29 @@ function call_api($url, $access_token, $method = 'GET') {
 // Fetch order details from API
 $api_url = $api_base_url . "/order?action=get-order&id=" . urlencode($order_id);
 $response = call_api($api_url, $access_token);
-$order = $response['success'] ? $response['data'] : [];
+$order = $response['success'] ? $response['data']['order'] : [];
+$order_details = $response['success'] ? ($response['data']['order_details'] ?? []) : [];
 $error_message = !$response['success'] ? $response['message'] : ($_GET['error'] ?? '');
+
+// Fetch book details for each order detail
+$books = [];
+foreach ($order_details as &$detail) {
+    $book_id = $detail['book_id'];
+    if (!isset($books[$book_id])) {
+        $book_response = call_api($api_base_url . "/book?action=get-book&id=" . urlencode($book_id), $access_token);
+        if ($book_response['success'] && !empty($book_response['data']['book'])) {
+            $books[$book_id] = $book_response['data']['book'];
+        } else {
+            $books[$book_id] = [
+                'title' => 'Unknown Book (' . $book_id . ')',
+                'image_url' => null
+            ];
+            error_log("Failed to fetch book $book_id: " . $book_response['message']);
+        }
+    }
+    $detail['book'] = $books[$book_id];
+}
+unset($detail); // Unset reference to avoid issues
 
 ?>
 
@@ -91,7 +112,7 @@ $error_message = !$response['success'] ? $response['message'] : ($_GET['error'] 
     <?php if (!empty($order)): ?>
         <div class="card mb-4">
             <div class="card-header">
-                <h4>#<?= $order['id'] ?></h4>
+                <h4>Order #<?= htmlspecialchars($order['id']) ?></h4>
             </div>
             <div class="card-body">
                 <div class="row">
@@ -110,6 +131,54 @@ $error_message = !$response['success'] ? $response['message'] : ($_GET['error'] 
                         <p><strong>Payment Method:</strong> <?= htmlspecialchars($order['payment_method'] ?? 'N/A') ?></p>
                         <p><strong>Created At:</strong> <?= htmlspecialchars(date('d/m/Y H:i', strtotime($order['created_at']))) ?></p>
                         <p><strong>Updated At:</strong> <?= htmlspecialchars(date('d/m/Y H:i', strtotime($order['updated_at']))) ?></p>
+                    </div>
+                </div>
+
+                <!-- Order Details Table -->
+                <div class="mt-4">
+                    <h5>Order Items</h5>
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="vertical-align: middle;">#</th>
+                                    <th style="vertical-align: middle;">Book</th>
+                                    <th style="vertical-align: middle;">Quantity</th>
+                                    <th style="vertical-align: middle;">Price</th>
+                                    <th style="vertical-align: middle;">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php if (!empty($order_details)): ?>
+                                    <?php foreach ($order_details as $index => $detail): ?>
+                                        <tr>
+                                            <td style="vertical-align: middle;"><?= $index + 1 ?></td>
+                                            <td style="vertical-align: middle;">
+                                                <div class="d-flex align-items-center">
+                                                    <?php if (!empty($detail['book']['image_url'])): ?>
+                                                        <img src="<?= htmlspecialchars($detail['book']['image_url']) ?>" 
+                                                             alt="<?= htmlspecialchars($detail['book']['title']) ?>" 
+                                                             style="width: 50px; height: 50px; object-fit: cover; margin-right: 10px;">
+                                                    <?php else: ?>
+                                                        <div style="width: 50px; height: 50px; background: #f0f0f0; margin-right: 10px; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #666;">
+                                                            No Image
+                                                        </div>
+                                                    <?php endif; ?>
+                                                    <span><?= htmlspecialchars($detail['book']['title'] ?? $detail['book_id']) ?></span>
+                                                </div>
+                                            </td>
+                                            <td style="vertical-align: middle;"><?= htmlspecialchars($detail['quantity']) ?></td>
+                                            <td style="vertical-align: middle;"><?= number_format((float)$detail['price'], 0, ',', '.') ?> VND</td>
+                                            <td style="vertical-align: middle;"><?= number_format((float)$detail['price'] * (int)$detail['quantity'], 0, ',', '.') ?> VND</td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                <?php else: ?>
+                                    <tr>
+                                        <td colspan="5" class="text-center" style="vertical-align: middle;">No items found in this order.</td>
+                                    </tr>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
 
@@ -144,6 +213,8 @@ $error_message = !$response['success'] ? $response['message'] : ($_GET['error'] 
             </div>
         </div>
 
+    <?php else: ?>
+        <div class="alert alert-warning">Order not found.</div>
     <?php endif; ?>
 
     <div class="mt-3">
