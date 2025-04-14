@@ -28,7 +28,7 @@ if (!$is_admin) {
 
 // Get query parameters
 $page = max(1, (int)($_GET['page'] ?? 1));
-$limit = 30; // Display 10 orders per page
+$limit = 10; // Display 10 orders per page
 $filters = $_GET['filters'] ?? '';
 $sort = $_GET['sort'] ?? 'newest';
 $search = $_GET['search'] ?? '';
