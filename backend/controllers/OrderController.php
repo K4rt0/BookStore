@@ -29,7 +29,7 @@ class OrderController {
         $page = isset($query['page']) && is_numeric($query['page']) && $query['page'] > 0 ? (int)$query['page'] : 1;
         $limit = isset($query['limit']) && is_numeric($query['limit']) && $query['limit'] > 0 ? (int)$query['limit'] : 10;
         $offset = ($page - 1) * $limit;
-    
+
         $rawCategoryIds = $query['category_id'] ?? [];
         $validCategoryIds = is_array($rawCategoryIds) 
             ? array_filter($rawCategoryIds, fn($id) => preg_match('/^[a-f0-9]{32}$/i', $id)) 
@@ -44,21 +44,22 @@ class OrderController {
             'category_ids' => $validCategoryIds,
             'search' => isset($query['search']) && is_string($query['search']) && trim($query['search']) !== '' ? trim($query['search']) : null,
         ];
-    
+
         // Validate sort
         $validSortOptions = ['newest', 'oldest'];
         $sort = isset($query['sort']) && in_array($query['sort'], $validSortOptions) ? $query['sort'] : 'newest';
-    
+
         // Call model
-        $orders = $this->order->get_all_orders_pagination($limit, $offset, $filters, $sort);
-    
-        if (empty($orders)) {
+        $result = $this->order->get_all_orders_pagination($limit, $offset, $filters, $sort);
+
+        if (empty($result['orders'])) {
             return ApiResponse::error("Không có đơn hàng nào !", 404);
-        } else {
-            return ApiResponse::success("Lấy danh sách đơn hàng thành công !", 200, [
-                "orders" => $orders,
-            ]);
         }
+
+        return ApiResponse::success("Lấy danh sách đơn hàng thành công !", 200, [
+            "orders" => $result['orders'],
+            "total" => $result['total']
+        ]);
     }
     public function get_order($params) {
         $id = $params['id'] ?? null;

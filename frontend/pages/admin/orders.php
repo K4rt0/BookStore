@@ -6,7 +6,7 @@ $layout = 'admin';
 ob_start();
 
 // Load environment variables
-$base_url = $_ENV['API_BASE_URL'] ?? 'http://localhost/api/'; // Fallback if env not loaded
+$base_url = $_ENV['API_BASE_URL'];
 error_log("Base URL: $base_url");
 
 // Define session variables
@@ -20,7 +20,7 @@ if (empty($access_token) || empty($user_id)) {
     exit();
 }
 
-// Check admin role (optional, remove if not needed)
+// Check admin role
 if (!$is_admin) {
     header("Location: /?error=" . urlencode("Access denied: Admin privileges required"));
     exit();
@@ -57,11 +57,19 @@ function fetch_orders($base_url, $page, $limit, $filters, $sort, $search, $acces
 
     // Log for debugging
     error_log("API Request URL: $api_url");
-    error_log("Access Token: " . $access_token);
     error_log("HTTP Code: $http_code");
     error_log("Raw Response: " . ($response ?: 'No response'));
     if ($curl_error) {
         error_log("cURL Error: $curl_error");
+    }
+
+    if (!$response) {
+        return [
+            'success' => false,
+            'message' => 'No response from API. cURL Error: ' . ($curl_error ?: 'Unknown'),
+            'orders' => [],
+            'total' => 0
+        ];
     }
 
     $orders_data = json_decode($response, true);
@@ -84,22 +92,36 @@ function fetch_orders($base_url, $page, $limit, $filters, $sort, $search, $acces
         ];
     }
 
+    // Loại bỏ đơn hàng trùng lặp dựa trên ID
+    $unique_orders = [];
+    $order_ids = [];
+    foreach ($orders_data['data']['orders'] ?? [] as $order) {
+        if (!in_array($order['id'], $order_ids)) {
+            $unique_orders[] = $order;
+            $order_ids[] = $order['id'];
+        }
+    }
+
     return [
         'success' => true,
         'message' => $orders_data['message'] ?? 'Success',
-        'orders' => $orders_data['data']['orders'] ?? [],
-        'total' => $orders_data['data']['total'] ?? count($orders_data['data']['orders'] ?? [])
+        'orders' => $unique_orders,
+        'total' => isset($orders_data['data']['total']) ? $orders_data['data']['total'] : count($unique_orders) // Fallback to count
     ];
 }
 
 // Fetch orders
 $result = fetch_orders($base_url, $page, $limit, $filters, $sort, $search, $access_token);
-$orders = $result['orders'];
-$total_orders = $result['total'];
+$orders = $result['orders'] ?? [];
+$total_orders = max(0, $result['total'] ?? count($orders)); // Fallback to count if total is missing
 $error_message = !$result['success'] ? $result['message'] : '';
 
 // Log pagination details
 error_log("Total orders: $total_orders, Limit: $limit, Page: $page, Orders returned: " . count($orders));
+
+// Calculate total pages
+$total_pages = ceil($total_orders / $limit) ?: 1;
+error_log("Calculated Total Pages: $total_pages");
 ?>
 
 <div class="container mt-4">
@@ -173,15 +195,15 @@ error_log("Total orders: $total_orders, Limit: $limit, Page: $page, Orders retur
                                             $status = $order['status'];
                                             $badgeClass = match ($status) {
                                                 'Delivered' => 'success',
-                                                'Shipped'   => 'info',
-                                                'Pending'   => 'warning',
-                                                default     => 'danger',
+                                                'Shipped' => 'info',
+                                                'Pending' => 'warning',
+                                                'Processing' => 'primary',
+                                                default => 'danger',
                                             };
                                             ?>
                                             <span class="badge bg-<?= $badgeClass ?>">
                                                 <?= htmlspecialchars($status) ?>
                                             </span>
-
                                         </td>
                                         <td><?= htmlspecialchars(date('d/m/Y H:i', strtotime($order['created_at']))) ?></td>
                                         <td>
@@ -193,10 +215,7 @@ error_log("Total orders: $total_orders, Limit: $limit, Page: $page, Orders retur
                         </table>
 
                         <!-- Pagination -->
-                        <?php
-                        $total_pages = ceil($total_orders / $limit);
-                        if ($total_pages > 1):
-                        ?>
+                        <?php if ($total_pages > 1 || count($orders) >= $limit): ?>
                             <nav aria-label="Orders pagination">
                                 <ul class="pagination justify-content-center">
                                     <li class="page-item <?= $page <= 1 ? 'disabled' : '' ?>">
@@ -207,13 +226,13 @@ error_log("Total orders: $total_orders, Limit: $limit, Page: $page, Orders retur
                                             <a class="page-link" href="/admin/orders?page=<?= $i ?>&filters=<?= urlencode($filters) ?>&sort=<?= urlencode($sort) ?>&search=<?= urlencode($search) ?>"><?= $i ?></a>
                                         </li>
                                     <?php endfor; ?>
-                                    <li class="page-item <?= $page >= $total_pages ? 'disabled' : '' ?>">
+                                    <li class="page-item <?= $page >= $total_pages || count($orders) < $limit ? 'disabled' : '' ?>">
                                         <a class="page-link" href="/admin/orders?page=<?= $page + 1 ?>&filters=<?= urlencode($filters) ?>&sort=<?= urlencode($sort) ?>&search=<?= urlencode($search) ?>">Next</a>
                                     </li>
                                 </ul>
                             </nav>
                         <?php else: ?>
-                            <?php error_log("Pagination not shown because total_pages ($total_pages) <= 1"); ?>
+                            <?php error_log("Pagination not shown because total_pages ($total_pages) <= 1 or orders count (" . count($orders) . ") < limit ($limit)"); ?>
                         <?php endif; ?>
                     <?php endif; ?>
                 </div>
@@ -238,6 +257,7 @@ document.addEventListener('DOMContentLoaded', function () {
             url.searchParams.set('filters', filters);
             url.searchParams.set('sort', sort);
             url.searchParams.set('search', search);
+            console.log(url.toString()); // Debug URL
             window.location.href = url.toString();
         });
     }

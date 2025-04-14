@@ -51,51 +51,93 @@ class Order {
     }
 
     public function get_all_orders_pagination($limit, $offset, $filters = [], $sort = 'newest') {
-        $query = "
-            SELECT o.*
-            FROM {$this->table} o
-            LEFT JOIN order_details od ON o.id = od.order_id
-            LEFT JOIN books b ON od.book_id = b.id
-            LEFT JOIN categories c ON b.category_id = c.id
-            WHERE 1=1
-        ";
-    
+        // Khởi tạo câu truy vấn chính và truy vấn đếm
+        $query = "SELECT o.* FROM {$this->table} o";
+        $count_query = "SELECT COUNT(DISTINCT o.id) as total FROM {$this->table} o";
         $params = [];
-    
+        $where_conditions = [];
+
+        // Nếu có lọc theo category_id, thêm các JOIN
+        if (!empty($filters['category_ids'])) {
+            $query .= " LEFT JOIN order_details od ON o.id = od.order_id";
+            $query .= " LEFT JOIN books b ON od.book_id = b.id";
+            $query .= " LEFT JOIN categories c ON b.category_id = c.id";
+            $count_query .= " LEFT JOIN order_details od ON o.id = od.order_id";
+            $count_query .= " LEFT JOIN books b ON od.book_id = b.id";
+            $count_query .= " LEFT JOIN categories c ON b.category_id = c.id";
+        }
+
+        // Bộ lọc
         if (!empty($filters['status'])) {
-            $query .= " AND o.status = ?";
+            $where_conditions[] = "o.status = ?";
             $params[] = $filters['status'];
         }
-    
+
         if (!empty($filters['category_ids'])) {
             $placeholders = implode(',', array_fill(0, count($filters['category_ids']), '?'));
-            $query .= " AND c.id IN ($placeholders)";
+            $where_conditions[] = "c.id IN ($placeholders)";
             foreach ($filters['category_ids'] as $catId) {
                 $params[] = $catId;
             }
         }
-    
+
         if (!empty($filters['search'])) {
-            $query .= " AND (o.full_name LIKE ? OR o.phone LIKE ? OR o.shipping_address LIKE ?)";
+            $where_conditions[] = "(o.full_name LIKE ? OR o.phone LIKE ? OR o.shipping_address LIKE ?)";
             $params[] = '%' . $filters['search'] . '%';
             $params[] = '%' . $filters['search'] . '%';
             $params[] = '%' . $filters['search'] . '%';
         }
-    
+
+        // Thêm điều kiện WHERE nếu có
+        if (!empty($where_conditions)) {
+            $query .= " WHERE " . implode(' AND ', $where_conditions);
+            $count_query .= " WHERE " . implode(' AND ', $where_conditions);
+        }
+
+        // Sắp xếp
         $query .= $sort === 'newest' ? " ORDER BY o.created_at DESC" : " ORDER BY o.created_at ASC";
-    
+
+        // Phân trang
         $query .= " LIMIT ? OFFSET ?";
         $params[] = $limit;
         $params[] = $offset;
-    
-        $stmt = $this->conn->prepare($query);
-        foreach ($params as $index => $value) {
-            $type = is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR;
-            $stmt->bindValue($index + 1, $value, $type);
+
+        try {
+            // Log câu truy vấn và tham số để debug
+            error_log("Count Query: $count_query");
+            error_log("Count Params: " . json_encode(array_slice($params, 0, count($params) - 2)));
+            error_log("Main Query: $query");
+            error_log("Main Params: " . json_encode($params));
+
+            // Thực thi truy vấn đếm tổng số đơn hàng
+            $count_stmt = $this->conn->prepare($count_query);
+            for ($i = 0; $i < count($params) - 2; $i++) { // Bỏ qua limit và offset
+                $type = is_int($params[$i]) ? PDO::PARAM_INT : PDO::PARAM_STR;
+                $count_stmt->bindValue($i + 1, $params[$i], $type);
+            }
+            $count_stmt->execute();
+            $total = $count_stmt->fetch(PDO::FETCH_ASSOC)['total'];
+
+            // Thực thi truy vấn lấy đơn hàng
+            $stmt = $this->conn->prepare($query);
+            for ($i = 0; $i < count($params); $i++) {
+                $type = is_int($params[$i]) ? PDO::PARAM_INT : PDO::PARAM_STR;
+                $stmt->bindValue($i + 1, $params[$i], $type);
+            }
+            $stmt->execute();
+            $orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            return [
+                'orders' => $orders,
+                'total' => (int)$total
+            ];
+        } catch (PDOException $e) {
+            // Log lỗi chi tiết
+            error_log("SQL Error: " . $e->getMessage());
+            error_log("Query: $query");
+            error_log("Params: " . json_encode($params));
+            throw $e; // Ném lại lỗi để xử lý ở tầng trên nếu cần
         }
-    
-        $stmt->execute();
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
     public function find_all_orders_by_user_id($user_id) {
