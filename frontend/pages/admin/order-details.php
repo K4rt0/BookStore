@@ -119,7 +119,7 @@ unset($detail); // Unset reference to avoid issues
                     <div class="col-md-6">
                         <p><strong>Name:</strong> <?= htmlspecialchars($order['full_name']) ?></p>
                         <p><strong>Phone:</strong> <?= htmlspecialchars($order['phone']) ?></p>
-                        <p><strong>Total Price:</strong> <?= number_format((float)$order['total_price'], 0, ',', '.') ?> VND</p>
+                        <p><strong>Total Price:</strong> <?= number_format((float)$order['total_price'], 0, ',', '.') ?>₫</p>
                         <p><strong>Status:</strong> 
                             <span class="badge <?= $order['status'] === 'Delivered' ? 'bg-success' : ($order['status'] === 'Cancelled' ? 'bg-danger' : 'bg-warning') ?>">
                                 <?= htmlspecialchars($order['status']) ?>
@@ -168,8 +168,8 @@ unset($detail); // Unset reference to avoid issues
                                                 </div>
                                             </td>
                                             <td style="vertical-align: middle;"><?= htmlspecialchars($detail['quantity']) ?></td>
-                                            <td style="vertical-align: middle;"><?= number_format((float)$detail['price'], 0, ',', '.') ?> VND</td>
-                                            <td style="vertical-align: middle;"><?= number_format((float)$detail['price'] * (int)$detail['quantity'], 0, ',', '.') ?> VND</td>
+                                            <td style="vertical-align: middle;"><?= number_format((float)$detail['price'], 0, ',', '.') ?>₫</td>
+                                            <td style="vertical-align: middle;"><?= number_format((float)$detail['price'] * (int)$detail['quantity'], 0, ',', '.') ?>₫</td>
                                         </tr>
                                     <?php endforeach; ?>
                                 <?php else: ?>
