@@ -286,7 +286,7 @@ if (!$book) {
                                         <i class="fas fa-tag"></i> -<?= $discount_percent ?>%
                                     </span>
                                 <?php else: ?>
-                                    <span class="current-price">₫<?= htmlspecialchars(number_format(($book['price'] ?? 0), 0)) ?></span>
+                                    <span class="current-price">₫<?= htmlspecialchars(number_format(($book['price'] ?? 0), 0, ',', '.')) ?></span>
                                 <?php endif; ?>
                             </div>
                             

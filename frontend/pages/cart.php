@@ -149,7 +149,7 @@ if ($cart_response['success'] && !empty($cart_response['data'])) {
                                         </div>
                                     </td>
                                     <td>
-                                        <h5 class="price" data-price="<?php echo $item['price']; ?>">₫<?php echo number_format($item['price'], 2); ?></h5>
+                                        <h5 class="price" data-price="<?php echo $item['price']; ?>"><?php echo number_format($item['price'], 0, ',', '.'); ?>₫</h5>
                                     </td>
                                     <td>
                                         <div class="product_count">

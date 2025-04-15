@@ -189,7 +189,7 @@ error_log("Calculated Total Pages: $total_pages");
                                     <tr>
                                         <td><span title="<?= htmlspecialchars($order['id']) ?>"><?= htmlspecialchars(substr($order['id'], 0, 8)) ?>...</span></td>
                                         <td><?= htmlspecialchars($order['full_name']) ?></td>
-                                        <td>$<?= number_format($order['total_price'], 2) ?></td>
+                                        <td><?= number_format($order['total_price'], 0,',', '.') ?>₫</td>
                                         <td>
                                             <?php
                                             $status = $order['status'];

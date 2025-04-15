@@ -158,7 +158,7 @@ ob_start();
                                             <p>(<span><?= htmlspecialchars($book['rating_count']) ?></span> Review)</p>
                                         </div>
                                         <div class="price">
-                                            <span><?= number_format(floatval($book['price'] ?? 0), 0) ?>₫</span>
+                                            <span><?= number_format(floatval($book['price'] ?? 0), 0, ',', '.') ?>₫</span>
                                         </div>
                                     </div>
                                 </div>
@@ -285,7 +285,7 @@ ob_start();
                                                 <p>(<span><?= htmlspecialchars($book['rating_count']) ?></span> Review)</p>
                                             </div>
                                             <div class="price">
-                                                <span><?= number_format(floatval($book['price'] ?? 0), 0) ?>₫</span>
+                                                <span><?= number_format(floatval($book['price'] ?? 0), 0, ',', '.') ?>₫</span>
                                             </div>
                                         </div>
                                     </div>
@@ -321,7 +321,7 @@ ob_start();
                                                     <p>(<span><?= htmlspecialchars($book['rating_count']) ?></span> Review)</p>
                                                 </div>
                                                 <div class="price">
-                                                    <span><?= number_format(floatval($book['price'] ?? 0), 0) ?>₫</span>
+                                                    <span><?= number_format(floatval($book['price'] ?? 0), 0, ',', '.') ?>₫</span>
                                                 </div>
                                             </div>
                                         </div>
