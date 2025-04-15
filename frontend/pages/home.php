@@ -134,7 +134,7 @@ ob_start();
         </div>
         <div class="row">
             <?php if (empty($bestSellingBooks)): ?>
-                <div class="col-12"><p>Không có sách bán chạy để hiển thị.</p></div>
+                <div class="col-12"><p>Không có sách bán chạy ₫ể hiển thị.</p></div>
             <?php else: ?>
                 <?php foreach ($bestSellingBooks as $book): ?>
                     <div class="col-xl-3 col-lg-3 col-md-4 col-sm-6">
@@ -158,7 +158,7 @@ ob_start();
                                             <p>(<span><?= htmlspecialchars($book['rating_count']) ?></span> Review)</p>
                                         </div>
                                         <div class="price">
-                                            <span>$<?= number_format(floatval($book['price']), 2, '.', '') ?></span>
+                                            <span><?= number_format(floatval($book['price'] ?? 0), 0) ?>₫</span>
                                         </div>
                                     </div>
                                 </div>
@@ -202,7 +202,7 @@ ob_start();
                                         <h3 style="margin-bottom: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><?= htmlspecialchars($book['title']) ?></h3>
                                         <p>By <?= htmlspecialchars($book['author']) ?></p>
                                         <div class="price">
-                                            <span>$<?= number_format(floatval($book['price']), 2, '.', '') ?></span>
+                                            <span><?= number_format(floatval($book['price']), 0) ?>₫</span>
                                         </div>
                                         <div class="review">
                                             <div class="rating">
@@ -285,7 +285,7 @@ ob_start();
                                                 <p>(<span><?= htmlspecialchars($book['rating_count']) ?></span> Review)</p>
                                             </div>
                                             <div class="price">
-                                                <span>$<?= number_format(floatval($book['price']), 2, '.', '') ?></span>
+                                                <span><?= number_format(floatval($book['price'] ?? 0), 0) ?>₫</span>
                                             </div>
                                         </div>
                                     </div>
@@ -321,7 +321,7 @@ ob_start();
                                                     <p>(<span><?= htmlspecialchars($book['rating_count']) ?></span> Review)</p>
                                                 </div>
                                                 <div class="price">
-                                                    <span>$<?= number_format(floatval($book['price']), 2, '.', '') ?></span>
+                                                    <span><?= number_format(floatval($book['price'] ?? 0), 0) ?>₫</span>
                                                 </div>
                                             </div>
                                         </div>

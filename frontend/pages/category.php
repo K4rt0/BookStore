@@ -295,7 +295,7 @@ $base_query = http_build_query($query_params);
                                                         <p style="margin: 5px 0 0; font-size: 0.8rem; color: #777;">(<span><?= htmlspecialchars($book['rating_count'] ?? 0) ?></span> Review)</p>
                                                     </div>
                                                     <div class="price">
-                                                        <span style="font-weight: bold; color: #e83e8c; font-size: 1.1rem;"><?= number_format(floatval($book['price'] ?? 0), 0) ?>đ</span>
+                                                        <span style="font-weight: bold; color: #e83e8c; font-size: 1.1rem;"><?= number_format(floatval($book['price'] ?? 0), 0) ?>₫</span>
                                                     </div>
                                                 </div>
                                             </div>
