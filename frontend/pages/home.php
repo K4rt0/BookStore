@@ -39,9 +39,9 @@ function getStarRating($rating) {
 }
 
 // Fetch books for each section
-$bestSellingBooks = fetchData("{$api_base_url}/book?action=get-all-books-pagination&page=1&limit=6&is_best_seller=1&sort=price_at_asc&is_deleted=0")['books'] ?? [];
-$featuredBooks = fetchData("{$api_base_url}/book?action=get-all-books-pagination&page=1&limit=2&is_featured=1&sort=price_at_asc&is_deleted=0")['books'] ?? [];
-$latestBooksAll = fetchData("{$api_base_url}/book?action=get-all-books-pagination&page=1&limit=6&is_new=1&sort=created_at_desc&is_deleted=0")['books'] ?? [];
+$bestSellingBooks = fetchData("{$api_base_url}/book?action=get-all-books-pagination&page=1&limit=8&is_best_seller=1&sort=price_at_asc&is_deleted=0")['books'] ?? [];
+$featuredBooks = fetchData("{$api_base_url}/book?action=get-all-books-pagination&page=1&limit=6&is_featured=1&sort=price_at_asc&is_deleted=0")['books'] ?? [];
+$latestBooksAll = fetchData("{$api_base_url}/book?action=get-all-books-pagination&page=1&limit=8&is_new=1&sort=created_at_desc&is_deleted=0")['books'] ?? [];
 
 // Fetch categories
 $categoriesData = fetchData("{$api_base_url}/category?action=get-all-categories");
