@@ -1,6 +1,4 @@
 <?php
-session_start();
-
 $page_title = "Order Management";
 $layout = 'admin';
 ob_start();

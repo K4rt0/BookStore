@@ -1,6 +1,4 @@
 <?php
-// 404.php - Trang lỗi được cải thiện với điều hướng tùy chỉnh cho admin
-session_start(); // Khởi tạo session để kiểm tra trạng thái đăng nhập
 ?>
 <!DOCTYPE html>
 <html lang="en">

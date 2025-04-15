@@ -1,5 +1,4 @@
 <?php
-session_start();
 require_once __DIR__ . '/../includes/env-loader.php';
 
 // Kiểm tra session để đảm bảo người dùng đã đăng nhập

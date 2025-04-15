@@ -1,5 +1,4 @@
 <?php
-session_start();
 
 $page_title = "Add Category";
 $layout = 'admin';

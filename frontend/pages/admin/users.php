@@ -1,6 +1,4 @@
 <?php
-session_start();
-
 $page_title = "Admin Dashboard - User Management";
 $layout = 'admin';
 ob_start();

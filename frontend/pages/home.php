@@ -1,6 +1,5 @@
 <?php
 // pages/home.php
-session_start();
 require_once __DIR__ . '/../includes/env-loader.php';
 
 $page_title = "Book Shop - Home";
