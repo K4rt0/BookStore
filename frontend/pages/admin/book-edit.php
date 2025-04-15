@@ -1,12 +1,9 @@
 <?php
 $page_title = "Edit Book";
 $layout = 'admin';
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
+
 ob_start();
 
-error_log("Auth Token: " . ($_SESSION['access_token'] ?? 'Not set'));
 
 $base_url = $_ENV['API_BASE_URL'];
 if (empty($base_url)) {

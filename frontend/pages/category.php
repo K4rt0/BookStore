@@ -2,8 +2,6 @@
 $page_title = "Book Shop - Categories";
 ob_start();
 
-// Set up API connection
-session_start();
 $base_url = $_ENV['API_BASE_URL'];
 $headers = [
     'Authorization: Bearer ' . ($_SESSION['access_token'] ?? '')

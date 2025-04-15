@@ -1,6 +1,6 @@
 <?php
 $page_title = "Book Shop - About";
-ob_start(); // Bắt đầu bộ đệm để lưu nội dung trang
+ob_start(); 
 ?>
 <div class="container">
         <div class="row">

@@ -2,8 +2,6 @@
 $page_title = "Book Shop - Details";
 ob_start(); 
 
-session_start();
-
 // Get book ID from URL parameter
 $book_id = isset($_GET['id']) ? $_GET['id'] : null;
 $base_url = $_ENV['API_BASE_URL'];

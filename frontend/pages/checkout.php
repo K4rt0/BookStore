@@ -2,8 +2,6 @@
 $page_title = "Book Shop - Checkout";
 ob_start();
 
-// Start session
-session_start();
 
 // API base URL and session variables
 $api_base_url = $_ENV['API_BASE_URL'];

@@ -1,5 +1,4 @@
 <?php
-session_start();
 $page_title = "Admin Dashboard";
 $layout = 'admin';
 ini_set('display_errors', 1);

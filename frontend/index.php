@@ -6,11 +6,6 @@ session_start([
 ]);
 require_once __DIR__ . '/includes/env-loader.php';
 
-// Debug: Log session info
-error_log("Session ID: " . session_id());
-error_log("Session save path: " . session_save_path());
-
-// Get the requested URL path (with fallback if .htaccess isn't working)
 if (isset($_GET['url'])) {
     $url = rtrim($_GET['url'], '/');
 } else {
@@ -21,11 +16,6 @@ if (isset($_GET['url'])) {
 }
 $url = filter_var($url, FILTER_SANITIZE_URL);
 $url_parts = explode('/', $url);
-
-// Debug: Log the URL and route
-error_log("Requested URL: " . $url);
-error_log("URL Parts: " . print_r($url_parts, true));
-
 $routes = [
     '' => 'pages/home.php',
     'index' => 'pages/home.php',
@@ -105,7 +95,6 @@ if ($route === 'book-details' && isset($url_parts[1])) {
     }
 }
 
-// Handle dynamic routes for admin/order-details (e.g., /admin/order-details/123e4567-e89b-12d3-a456-426614174000)
 if ($route === 'admin/order-details' && isset($url_parts[2])) {
     $order_id = filter_var($url_parts[2], FILTER_SANITIZE_STRING);
     if (!empty($order_id)) {
