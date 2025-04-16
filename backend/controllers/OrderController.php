@@ -181,7 +181,7 @@ class OrderController {
                 'price' => (float)$cart['price'],
             ];
             $this->order->create_orders_detail($orderDetail);
-            // $this->cart->delete($cart['id']);
+            $this->cart->delete($cart['id']);
         }
         
         $payment_method = strtolower($input['order_info']['payment_method']);
