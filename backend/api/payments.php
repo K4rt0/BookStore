@@ -9,6 +9,8 @@ switch ($_SERVER['REQUEST_METHOD']) {
     case 'GET':
         if ($_GET['action'] == 'get-payment')
             $controller->get_payment($_GET);
+        elseif ($_GET['action'] == 'get-payment-by-order')
+            $controller->get_payment_by_order($_GET);
         elseif ($_GET['action'] == 'result')
             $controller->result_payment($_GET);
         else $flag = true;
