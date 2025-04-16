@@ -27,12 +27,15 @@ class CartController {
     // POST methods
     public function add_to_cart() {
         $input = json_decode(file_get_contents("php://input"), true);
-
+        $book = null;
         if (empty($input['user_id']) || (!empty($input['user_id']) && !$this->user->find_by_id($input['user_id'])))
             return ApiResponse::error("Không tìm thấy người dùng này !", 404);
-        if (empty($input['book_id']) || (!empty($input['book_id']) && !$this->book->find_by_id($input['book_id'])))
+        $book = $this->book->find_by_id($input['book_id']);
+        if (empty($input['book_id']) || (!empty($input['book_id']) && !$book))
             return ApiResponse::error("Không tìm thấy cuốn sách này !", 404);
-
+        if ($book['stock_quantity'] < 1)
+            return ApiResponse::error("Sách đã hết hàng !", 400);
+        
         $existing_item = $this->cart->find_by_user_and_book($input['user_id'], $input['book_id']);
         $quantity = $input['quantity'] ?? 1;
 
