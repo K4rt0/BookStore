@@ -7,7 +7,9 @@ $flag = false;
 
 switch ($_SERVER['REQUEST_METHOD']) {
     case 'GET':
-        if ($_GET['action'] == 'result')
+        if ($_GET['action'] == 'get-payment')
+            $controller->get_payment($_GET);
+        elseif ($_GET['action'] == 'result')
             $controller->result_payment($_GET);
         else $flag = true;
         break;

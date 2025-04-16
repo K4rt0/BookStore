@@ -17,6 +17,16 @@ class PaymentController {
         $this->book = new Book();
     }
 
+    public function get_payment($query) {
+        $payment_id = $query['payment_id'] ?? null;
+        if (empty($payment_id)) return ApiResponse::error("Thiếu thông tin giao dịch !", 400);
+        
+        $payment = $this->payment->find_by_id($payment_id);
+        if (!$payment) return ApiResponse::error("Giao dịch không tồn tại !", 404);
+        
+        return ApiResponse::success("Lấy thông tin giao dịch thành công !", 200, $payment);
+    }
+
     public function result_payment($query) {
         $payment_id = $query['payment_id'] ?? null;
         $payment_method = $query['payment_method'] ?? null;
@@ -43,11 +53,17 @@ class PaymentController {
                     } else $error_code = 1;
                 }
             }
+            if($error_code != 0)
+                $this->order->update_status([
+                    'order_id' => $paymentExisting['order_id'],
+                    'status' => 'Cancelled'
+                ]);
             $this->payment->update($payment_id, ['status' => $error_code == 0 ? 'Paid' : 'Failed']);
             header("Location: http://localhost:8000/order-confirmation?status=" . ($error_code == 0 ? 'success' : 'failed') . "&payment_id=" . $payment_id);
             exit();
         }
     }
+    
     public function update_payment() {
         $input = json_decode(file_get_contents("php://input"), true);
         $payment_id = $input['payment_id'] ?? null;
