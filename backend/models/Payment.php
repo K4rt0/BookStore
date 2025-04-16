@@ -21,6 +21,12 @@ class Payment {
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
 
+    public function find_by_order_id($order_id) {
+        $stmt = $this->conn->prepare("SELECT * FROM {$this->table} WHERE order_id = :order_id LIMIT 1");
+        $stmt->execute(['order_id' => $order_id]);
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+
     public function update($id, $data) {
         $fields = [];
         foreach ($data as $key => $value) {

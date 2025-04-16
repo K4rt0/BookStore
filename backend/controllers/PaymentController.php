@@ -63,6 +63,16 @@ class PaymentController {
             exit();
         }
     }
+
+    public function get_payment_by_order($query) {
+        $order_id = $query['order_id'] ?? null;
+        if (empty($order_id)) return ApiResponse::error("Thiếu thông tin đơn hàng !", 400);
+        
+        $payment = $this->payment->find_by_order_id($order_id);
+        if (!$payment) return ApiResponse::error("Giao dịch không tồn tại !", 404);
+        
+        return ApiResponse::success("Lấy thông tin giao dịch thành công !", 200, $payment);
+    }
     
     public function update_payment() {
         $input = json_decode(file_get_contents("php://input"), true);
