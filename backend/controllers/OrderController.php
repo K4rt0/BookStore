@@ -200,6 +200,10 @@ class OrderController {
                 'status' => 'Paid'
             ];
             $this->payment->create($payment);
+
+            foreach ($carts as $cart) {
+                $this->order->minus_stock($cart['book_id'], $cart['quantity']);
+            }
             
             ApiResponse::success("Tạo đơn hàng thành công !", 200, [
                 'payment_url' => 'http://localhost:8000/order-confirmation?status=success',

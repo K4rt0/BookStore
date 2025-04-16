@@ -1,14 +1,20 @@
 <?php
 require_once __DIR__ . '/../models/Payment.php';
+require_once __DIR__ . '/../models/Order.php';
+require_once __DIR__ . '/../models/Book.php';
 require_once __DIR__ . '/../helpers/ApiResponse.php';
 require_once __DIR__ . '/../helpers/payments/MomoService.php';
 require_once __DIR__ . '/../helpers/payments/PayPalService.php';
 
 class PaymentController {
     private $payment;
-
+    private $order;
+    private $book;
+    
     public function __construct() {
         $this->payment = new Payment();
+        $this->order = new Order();
+        $this->book = new Book();
     }
 
     public function result_payment($query) {
@@ -25,8 +31,20 @@ class PaymentController {
             return ApiResponse::error("Giao dịch không tồn tại !", 404);
  
         if($payment_method == 'momo') {
+            if($paymentExisting['status'] == 'Pending') {
+                $order_details = $this->order->get_order_details($paymentExisting['order_id']);
+                foreach ($order_details as $order_detail) {
+                    if($this->book->find_by_id($order_detail['book_id'])) {
+                        $book = $this->book->find_by_id($order_detail['book_id']);
+                        if ($book['stock_quantity'] < $order_detail['quantity'] || $book['stock_quantity']-$order_detail['quantity'] < 0)
+                            $error_code = 1;
+                        else
+                            $this->order->minus_stock($order_detail['book_id'], $order_detail['quantity']);
+                    } else $error_code = 1;
+                }
+            }
             $this->payment->update($payment_id, ['status' => $error_code == 0 ? 'Paid' : 'Failed']);
-            header("Location: http://localhost:8000/order-confirmation?status=" . ($error_code == 0 ? 'success' : 'failed'));
+            header("Location: http://localhost:8000/order-confirmation?status=" . ($error_code == 0 ? 'success' : 'failed') . "&payment_id=" . $payment_id);
             exit();
         }
     }
