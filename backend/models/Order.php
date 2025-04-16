@@ -51,13 +51,11 @@ class Order {
     }
 
     public function get_all_orders_pagination($limit, $offset, $filters = [], $sort = 'newest') {
-        // Khởi tạo câu truy vấn chính và truy vấn đếm
         $query = "SELECT o.* FROM {$this->table} o";
         $count_query = "SELECT COUNT(DISTINCT o.id) as total FROM {$this->table} o";
         $params = [];
         $where_conditions = [];
 
-        // Nếu có lọc theo category_id, thêm các JOIN
         if (!empty($filters['category_ids'])) {
             $query .= " LEFT JOIN order_details od ON o.id = od.order_id";
             $query .= " LEFT JOIN books b ON od.book_id = b.id";
@@ -67,7 +65,6 @@ class Order {
             $count_query .= " LEFT JOIN categories c ON b.category_id = c.id";
         }
 
-        // Bộ lọc
         if (!empty($filters['status'])) {
             $where_conditions[] = "o.status = ?";
             $params[] = $filters['status'];
@@ -88,37 +85,31 @@ class Order {
             $params[] = '%' . $filters['search'] . '%';
         }
 
-        // Thêm điều kiện WHERE nếu có
         if (!empty($where_conditions)) {
             $query .= " WHERE " . implode(' AND ', $where_conditions);
             $count_query .= " WHERE " . implode(' AND ', $where_conditions);
         }
 
-        // Sắp xếp
         $query .= $sort === 'newest' ? " ORDER BY o.created_at DESC" : " ORDER BY o.created_at ASC";
 
-        // Phân trang
         $query .= " LIMIT ? OFFSET ?";
         $params[] = $limit;
         $params[] = $offset;
 
         try {
-            // Log câu truy vấn và tham số để debug
             error_log("Count Query: $count_query");
             error_log("Count Params: " . json_encode(array_slice($params, 0, count($params) - 2)));
             error_log("Main Query: $query");
             error_log("Main Params: " . json_encode($params));
 
-            // Thực thi truy vấn đếm tổng số đơn hàng
             $count_stmt = $this->conn->prepare($count_query);
-            for ($i = 0; $i < count($params) - 2; $i++) { // Bỏ qua limit và offset
+            for ($i = 0; $i < count($params) - 2; $i++) {
                 $type = is_int($params[$i]) ? PDO::PARAM_INT : PDO::PARAM_STR;
                 $count_stmt->bindValue($i + 1, $params[$i], $type);
             }
             $count_stmt->execute();
             $total = $count_stmt->fetch(PDO::FETCH_ASSOC)['total'];
 
-            // Thực thi truy vấn lấy đơn hàng
             $stmt = $this->conn->prepare($query);
             for ($i = 0; $i < count($params); $i++) {
                 $type = is_int($params[$i]) ? PDO::PARAM_INT : PDO::PARAM_STR;
@@ -132,11 +123,10 @@ class Order {
                 'total' => (int)$total
             ];
         } catch (PDOException $e) {
-            // Log lỗi chi tiết
             error_log("SQL Error: " . $e->getMessage());
             error_log("Query: $query");
             error_log("Params: " . json_encode($params));
-            throw $e; // Ném lại lỗi để xử lý ở tầng trên nếu cần
+            throw $e;
         }
     }
 

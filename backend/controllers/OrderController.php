@@ -173,6 +173,10 @@ class OrderController {
         $this->order->create($order);
 
         foreach ($carts as $cart) {
+            if($this->book->find_by_id($cart['book_id'])['stock_quantity'] < $cart['quantity']) {
+                $this->order->delete($order_id);
+                return ApiResponse::error("Số lượng sách không đủ trong kho !", 400);
+            }
             $orderDetail = [
                 'id' => bin2hex(random_bytes(16)),
                 'order_id' => $order_id,
