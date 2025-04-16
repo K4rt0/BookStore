@@ -203,6 +203,11 @@ class Order {
         return $stmt->execute(['id' => $order_id, 'status' => $status]);
     }
 
+    public function minus_stock($book_id, $quantity) {
+        $stmt = $this->conn->prepare("UPDATE books SET stock_quantity = stock_quantity - :quantity WHERE id = :book_id");
+        return $stmt->execute(['book_id' => $book_id, 'quantity' => $quantity]);
+    }
+
     public function create_orders_detail($data) {
         $stmt = $this->conn->prepare("INSERT INTO order_details (id, order_id, book_id, quantity, price) VALUES (:id, :order_id, :book_id, :quantity, :price)");
         return $stmt->execute($data);
