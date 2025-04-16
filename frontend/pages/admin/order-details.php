@@ -3,7 +3,6 @@ $page_title = "Admin Dashboard - Order Details";
 $layout = 'admin';
 ob_start();
 
-
 // API base URL and session variables
 $api_base_url = $_ENV['API_BASE_URL'];
 $access_token = $_SESSION['access_token'] ?? null;
@@ -16,20 +15,17 @@ if (empty($access_token) || empty($user_id)) {
     exit();
 }
 
-// Check admin role
 if (!$is_admin) {
     header("Location: /?error=" . urlencode("Access denied: Admin privileges required"));
     exit();
 }
 
-// Get order_id from URL
 $order_id = $_GET['id'] ?? '';
 if (empty($order_id)) {
     header("Location: /admin/orders?error=" . urlencode("Order ID is required"));
     exit();
 }
 
-// Function to call API with error handling
 function call_api($url, $access_token, $method = 'GET') {
     $curl = curl_init();
     curl_setopt_array($curl, [
@@ -48,9 +44,6 @@ function call_api($url, $access_token, $method = 'GET') {
     $curl_error = curl_error($curl);
     curl_close($curl);
 
-    error_log("API Request URL: $url");
-    error_log("HTTP Code: $http_code");
-    error_log("Raw Response: " . ($response ?: 'No response'));
     if ($curl_error) {
         error_log("cURL Error: $curl_error");
     }
@@ -78,6 +71,15 @@ $order = $response['success'] ? $response['data']['order'] : [];
 $order_details = $response['success'] ? ($response['data']['order_details'] ?? []) : [];
 $error_message = !$response['success'] ? $response['message'] : ($_GET['error'] ?? '');
 
+// Fetch payment details from API
+$payment = [];
+$payment_response = call_api($api_base_url . "/payment?action=get-payment-by-order&order_id=" . urlencode($order_id), $access_token);
+if ($payment_response['success'] && !empty($payment_response['data'])) {
+    $payment = $payment_response['data'];
+} else {
+    error_log("Failed to fetch payment for order $order_id: " . $payment_response['message']);
+}
+
 // Fetch book details for each order detail
 $books = [];
 foreach ($order_details as &$detail) {
@@ -96,7 +98,7 @@ foreach ($order_details as &$detail) {
     }
     $detail['book'] = $books[$book_id];
 }
-unset($detail); // Unset reference to avoid issues
+unset($detail); 
 
 ?>
 
@@ -126,7 +128,12 @@ unset($detail); // Unset reference to avoid issues
                     </div>
                     <div class="col-md-6">
                         <p><strong>Shipping Address:</strong> <?= htmlspecialchars($order['shipping_address']) ?></p>
-                        <p><strong>Payment Method:</strong> <?= htmlspecialchars($order['payment_method'] ?? 'N/A') ?></p>
+                        <p><strong>Payment Method:</strong> <?= htmlspecialchars($payment['payment_method'] ?? 'N/A') ?></p>
+                        <p><strong>Payment Status:</strong> 
+                            <span class="badge <?= ($payment['status'] ?? '') === 'Paid' ? 'bg-success' : 'bg-warning' ?>">
+                                <?= htmlspecialchars($payment['status'] ?? 'N/A') ?>
+                            </span>
+                        </p>
                         <p><strong>Created At:</strong> <?= htmlspecialchars(date('d/m/Y H:i', strtotime($order['created_at']))) ?></p>
                         <p><strong>Updated At:</strong> <?= htmlspecialchars(date('d/m/Y H:i', strtotime($order['updated_at']))) ?></p>
                     </div>
