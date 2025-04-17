@@ -120,8 +120,8 @@ ob_start();
 <div class="login-form-area">
     <form method="POST" class="login-form">
         <div class="login-heading">
-            <span>Login</span>
-            <p>Enter Login details to get access</p>
+            <span>Đăng nhập</span>
+            <p>Nhập thông tin đăng nhập để truy cập</p>
         </div>
 
         <?php if ($login_error): ?>
@@ -130,25 +130,100 @@ ob_start();
 
         <div class="input-box">
             <div class="single-input-fields">
-                <label>Username or Email Address</label>
-                <input type="text" name="email" placeholder="Username / Email address" required>
+                <label>Tên đăng nhập hoặc Email</label>
+                <input type="text" name="email" placeholder="Tên đăng nhập / Email" required>
             </div>
             <div class="single-input-fields">
-                <label>Password</label>
-                <input type="password" name="password" placeholder="Enter Password" required>
+                <label>Mật khẩu</label>
+                <input type="password" name="password" placeholder="Nhập mật khẩu" required>
             </div>
             <div class="single-input-fields login-check">
                 <input type="checkbox" id="fruit1" name="keep-log">
-                <label for="fruit1">Keep me logged in</label>
-                <a href="#" class="f-right">Forgot Password?</a>
+                <label for="fruit1">Ghi nhớ đăng nhập</label>
+                <a href="#" class="f-right">Quên mật khẩu?</a>
+            </div>
+            <div class="social-login">
+                <div class="divider">
+                    <span>Hoặc đăng nhập với</span>
+                </div>
+                
+                <div class="google-login-container">
+                    <script src="https://accounts.google.com/gsi/client" async defer></script>
+                    <div id="g_id_onload"
+                        data-client_id="<?= htmlspecialchars($_ENV['GOOGLE_CLIENT_ID']) ?>"
+                        data-context="signin"
+                        data-ux_mode="popup"
+                        data-callback="handleCredentialResponse">
+                    </div>
+                    <div class="g_id_signin" data-type="standard"></div>
+                </div>
             </div>
         </div>
-
         <div class="login-footer">
-            <p>Don’t have an account? <a href="register">Sign Up</a> here</p>
-            <button type="submit" class="submit-btn3">Login</button>
+            <p>Chưa có tài khoản? <a href="register">Đăng ký</a> ngay</p>
+            <button type="submit" class="submit-btn3">Đăng nhập</button>
         </div>
     </form>
+
+    <script>
+    function handleCredentialResponse(response) {
+        const token = response.credential; // JWT access token
+        
+        if (token) {
+            fetch('<?= htmlspecialchars($api_base_url) ?>/user?action=google-login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token: token })
+            })
+            .then(res => res.json())
+            .then(data => {
+                console.log('Login success:', data);
+                if (data.success) {
+                    window.location.href = '/'; // Redirect to homepage or desired page
+                } else {
+                    alert('Đăng nhập thất bại: ' + (data.message || 'Lỗi không xác định'));
+                }
+            })
+            .catch(error => {
+                console.error('Error during login:', error);
+                alert('Đã xảy ra lỗi trong quá trình đăng nhập. Vui lòng thử lại.');
+            });
+        } else {
+            alert('Không nhận được token. Vui lòng thử lại.');
+        }
+    }
+    </script>
+    
+    <style>
+    .social-login {
+        margin-top: 30px;
+        text-align: center;
+    }
+    
+    .divider {
+        display: flex;
+        align-items: center;
+        margin: 20px 0;
+    }
+    
+    .divider::before, .divider::after {
+        content: "";
+        flex: 1;
+        border-bottom: 1px solid #ddd;
+    }
+    
+    .divider span {
+        padding: 0 10px;
+        color: #777;
+        font-size: 14px;
+    }
+    
+    .google-login-container {
+        display: flex;
+        justify-content: center;
+        margin-top: 15px;
+    }
+    </style>
 </div>
 
 <?php
