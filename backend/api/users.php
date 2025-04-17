@@ -33,6 +33,10 @@ switch ($_SERVER['REQUEST_METHOD']) {
             $controller->logout();
         elseif ($_GET['action'] == 'refresh-token')
             $controller->refresh_token();
+        elseif ($_GET['action'] == 'google-login') {
+
+            $controller->google_login();
+        }
         else $flag = true;
         break;
 

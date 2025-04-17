@@ -108,6 +108,57 @@ class UserController {
         ]);
     }
 
+    public function google_login() {
+        $input = json_decode(file_get_contents("php://input"), true);
+        $token = $input['token'] ?? null;
+
+        if (!$token) {
+            ApiResponse::error("Thiếu token !", 400);
+            return;
+        }
+
+        $client = new Google_Client(['client_id' => $_ENV['GOOGLE_CLIENT_ID']]);
+        $payload = $client->verifyIdToken($token);
+        
+        // $payload = AuthHelper::verifyGoogleToken($token);
+
+        if (!$payload) {
+            ApiResponse::error("Xác thực Google không hợp lệ !", 401);
+            return;
+        }//SQLSTATE[HY093]: Invalid parameter number: number of bound variables does not match number of tokens
+
+        $email = $payload['email'];
+        $user = $this->user->find_by_email($email);
+
+        if (!$user) {
+            $userId = bin2hex(random_bytes(16));
+            $userData = [
+                'id' => $userId,
+                'email' => $email,
+                'full_name' => $payload['name'],
+                'phone' => '0123456789',
+                'password' => password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT)
+            ];
+            var_dump("test 1");
+            $this->user->create($userData);
+            var_dump("test 2");
+        } else {
+            $userId = $user['id'];
+        }
+
+        $access = AuthHelper::generateAccessToken($userId);
+        $refresh = AuthHelper::generateRefreshToken($userId);
+
+        $this->user->update($userId, [
+            'refresh_token' => $refresh,
+        ]);
+
+        ApiResponse::success("Đăng nhập thành công", 200, [
+            'access_token' => $access,
+            'refresh_token' => $refresh,
+        ]);
+    }
+
     public function register() {
         $input = json_decode(file_get_contents("php://input"), true);
 
