@@ -183,16 +183,21 @@ $error_message = isset($error_message) ? $error_message : ($_GET['error'] ?? nul
 
 <section class="checkout_area section-padding">
     <div class="container">
-        <?php if (!empty($errors) || $error_message): ?>
-            <div class="alert alert-danger">
-                <?php foreach ($errors as $error): ?>
-                    <p><?php echo $error; ?></p>
-                <?php endforeach; ?>
-                <?php if ($error_message): ?>
-                    <p><?php echo htmlspecialchars($error_message); ?></p>
-                <?php endif; ?>
+        <?php if (!empty($errors) || !empty($error_message)): ?>
+            <div class="alert alert-danger" role="alert">
+                <ul class="mb-0">
+                    <?php if (!empty($errors)): ?>
+                        <?php foreach ($errors as $error): ?>
+                            <li><?php echo htmlspecialchars($error); ?></li>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                    <?php if (!empty($error_message)): ?>
+                        <li><?php echo htmlspecialchars($error_message); ?></li>
+                    <?php endif; ?>
+                </ul>
             </div>
         <?php endif; ?>
+
 
         <div class="billing_details">
             <div class="row">
